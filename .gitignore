@@ -1,0 +1,49 @@
+# User-specific stuff:
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/dictionaries
+
+# Sensitive or high-churn files:
+.idea/**/dataSources/
+.idea/**/dataSources.ids
+.idea/**/dataSources.xml
+.idea/**/dataSources.local.xml
+.idea/**/sqlDataSources.xml
+.idea/**/dynamic.xml
+.idea/**/uiDesigner.xml
+
+# Gradle:
+.idea/**/gradle.xml
+.idea/**/libraries
+
+# Package Files
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+# except from Gradle wrapper jar file that is useful after
+# checking out from VCS
+!gradle-wrapper.jar
+
+#Build, gradle, and system files
+/build/
+/.gradle/
+/DiskStore/
+/classes/
+/target/
+/uploads/
+/out/
+/.idea/
+git
+#stor for certificate of all kind
+#/src/main/resources/cert-store/
+
+# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+hs_err_pid*
+
+*.iml
+*.log
+/logs/
+.env
