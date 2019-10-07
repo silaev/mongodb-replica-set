@@ -1,0 +1,240 @@
+import io.franzbecker.gradle.lombok.task.DelombokTask
+
+buildscript {
+    ext {
+        junitVersion = '5.5.1'
+        testcontainersVersion = '1.12.0'
+    }
+}
+
+plugins {
+    id 'java'
+    id "io.franzbecker.gradle-lombok" version "3.1.0"
+    id 'java-library'
+    id 'idea'
+    id "com.github.johnrengelman.shadow" version "5.1.0"
+    id 'jacoco'
+    id 'maven-publish'
+}
+
+apply from: "$rootDir/gradle/jacoco.gradle"
+
+group = 'com.silaev'
+version = '0.1.0'
+
+repositories {
+    mavenCentral()
+}
+
+lombok {
+    version = "1.18.8"
+}
+
+configurations {
+    propogated
+    [implementation, testImplementation]*.extendsFrom propogated
+}
+
+dependencies {
+    //implementation platform("org.testcontainers:testcontainers-bom:${testcontainersVersion}")
+    propogated("org.testcontainers:testcontainers:${testcontainersVersion}")
+    implementation("org.yaml:snakeyaml:1.25")
+
+    testCompile('org.mockito:mockito-core:3.0.0')
+    testCompile('ch.qos.logback:logback-classic:1.2.3')
+    testCompile("org.junit.jupiter:junit-jupiter-params:${junitVersion}")
+    testRuntime("org.junit.jupiter:junit-jupiter-engine:${junitVersion}")
+    testCompile("org.mongodb:mongodb-driver-reactivestreams:1.12.0")
+    testCompile("org.mongodb:mongodb-driver-sync:3.11.0")
+    testCompile("org.mockito:mockito-junit-jupiter:3.0.0")
+}
+
+wrapper {
+    gradleVersion = '5.4.1'
+    distributionType = Wrapper.DistributionType.BIN
+}
+
+def junitParallelExecProperty = 'junit.jupiter.execution.parallel.enabled'
+
+test {
+    failFast = true
+}
+
+tasks.withType(Test) { Test task ->
+    task.useJUnitPlatform { JUnitPlatformOptions ops ->
+        ops.excludeTags("integration-test")
+    }
+
+    testLogging.showStandardStreams = true
+    testLogging.exceptionFormat = 'full'
+
+    reports.html.destination = file("${reporting.baseDir}/${name}")
+}
+
+task integrationTest(type: Test) { Test task ->
+    task.useJUnitPlatform { JUnitPlatformOptions ops ->
+        ops.includeTags("integration-test")
+    }
+    task.systemProperties(
+        System.properties.findAll {
+            it.key.toString().startsWith("mongoReplicaSetProperties") ||
+                it.key.toString().startsWith("junit")
+        }
+    )
+    if (!task.systemProperties.isEmpty()) {
+        println("Detected test system properties: " + task.systemProperties)
+    }
+
+    testLogging.showStandardStreams = true
+    testLogging.exceptionFormat = 'full'
+
+    if (System.properties.containsKey(junitParallelExecProperty)
+        && (System.properties.get(junitParallelExecProperty))) {
+        maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
+        forkEvery = 1
+    }
+
+    task.minHeapSize('32m')
+    task.maxHeapSize('256m')
+
+    check.dependsOn integrationTest
+    integrationTest.mustRunAfter test
+    finalizedBy jacocoTestReport
+}
+
+task delombok(type: DelombokTask) {
+    ext.outputDir = file("$buildDir/delombok")
+    outputs.dir(outputDir)
+    sourceSets.main.java.srcDirs.each {
+        inputs.dir(it)
+        args(it, "-d", outputDir)
+    }
+    doFirst {
+        outputDir.deleteDir()
+    }
+}
+
+shadowJar {
+    //https://github.com/johnrengelman/shadow/issues/463
+    classifier = ''
+    relocate 'org.yaml.snakeyaml', 'com.silaev.mongodb.replicaset.shaded'
+    dependencies {
+        include(dependency('org.yaml:snakeyaml'))
+    }
+    mergeServiceFiles()
+}
+
+task sourcesJar(type: Jar) {
+    dependsOn delombok
+    from delombok.outputDir
+    archiveClassifier = 'sources'
+}
+
+task javadocJar(type: Jar) {
+    from javadoc
+    archiveClassifier = 'javadoc'
+}
+
+compileJava {
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
+
+    options.encoding = 'UTF-8'
+    options.compilerArgs << "-Xlint:deprecation"
+}
+
+compileTestJava {
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
+
+    options.encoding = 'UTF-8'
+    options.compilerArgs << "-Xlint:deprecation"
+}
+
+javadoc {
+    dependsOn delombok
+    source = delombok.outputDir
+    options.locale = 'en_US'
+
+    if (JavaVersion.current().isJava9Compatible()) {
+        options.addBooleanOption('html5', true)
+    }
+}
+
+def isPublishingProperty = 'isPublishing'
+
+sourceSets {
+    def isPublishing = System.properties.containsKey(isPublishingProperty) &&
+        (System.properties.get(isPublishingProperty) == "true")
+    main {
+        java {
+            srcDirs = isPublishing ? [delombok.outputDir] : ['src/main/java']
+        }
+    }
+}
+
+publishing {
+    publications {
+        shadow(MavenPublication) { MavenPublication publication ->
+            project.shadow.component(publication)
+
+            artifact sourcesJar
+            artifact javadocJar
+
+            pom {
+                name = 'Mongodb replica set extension'
+                description = 'JUnit5 Java8 Register extension to construct a full-featured MongoDB cluster for integration tests'
+                url = 'https://github.com/silaev/mongodb-replica-set'
+
+                licenses {
+                    license {
+                        name = 'MIT'
+                        url = 'http://opensource.org/licenses/MIT'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'silaev'
+                        name = 'Konstantin Silaev'
+                        email = 'silaev256@gmail.com'
+                    }
+                }
+                scm {
+                    url = 'https://github.com/silaev/mongodb-replica-set/'
+                    connection = 'scm:git:git://github.com/silaev/mongodb-replica-set.git'
+                    developerConnection = 'scm:git:ssh://git@github.com/silaev/mongodb-replica-set.git'
+                }
+            }
+
+            pom.withXml {
+                project.configurations.propogated.allDependencies.each {
+                    def dependencyNode = asNode().get("dependencies")[0].appendNode("dependency")
+                    dependencyNode.appendNode('groupId', it.group)
+                    dependencyNode.appendNode('artifactId', it.name)
+                    dependencyNode.appendNode('version', it.version)
+                    dependencyNode.appendNode("scope", "compile")
+                }
+            }
+
+        }
+    }
+    repositories {
+        maven {
+            mavenLocal()
+        }
+    }
+}
+
+
+tasks.withType(PublishToMavenLocal) {
+    onlyIf {
+        System.properties.containsKey(isPublishingProperty) &&
+            System.properties.get(isPublishingProperty) == "true"
+    }
+    doLast {
+        System.properties.setProperty('isPublishing', "false")
+    }
+}
+
+compileJava.dependsOn(delombok)
+assemble.dependsOn shadowJar

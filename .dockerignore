@@ -1,0 +1,11 @@
+/uploads/
+/out/
+/.idea/
+.git
+*.iml
+*.log
+/logs/
+/scripts/
+/tools/
+Dockerfile.*
+docker-compose*
