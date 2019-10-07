@@ -1,0 +1,6 @@
+jdk:
+  - openjdk8
+install:
+  - echo "Running an install command"
+  - chmod +x gradlew
+  - ./gradlew clean build -xtest -xintegrationTest publishToMavenLocal -DisPublishing=true

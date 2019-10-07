@@ -1,0 +1,55 @@
+language: java
+
+jdk: openjdk11
+
+services: docker
+
+dist: bionic
+
+addons:
+  hosts:
+    - dockerhost
+  apt:
+    packages:
+      - docker-ce
+
+env:
+  matrix:
+    - MONGO_VERSION=3.6.14 ADD_PARALLEL_TEST=0 DOCKER_COMPOSE_VERSION=1.23.2 CODECOV=0
+    - MONGO_VERSION=4.0.10 ADD_PARALLEL_TEST=0 DOCKER_COMPOSE_VERSION=1.23.2 CODECOV=0
+    - MONGO_VERSION=4.2.0 ADD_PARALLEL_TEST=0 DOCKER_COMPOSE_VERSION=1.23.2 CODECOV=0
+    # with a current default MONGO_VERSION=4.0.10, run integration tests in parallel
+    - MONGO_VERSION=4.0.10 ADD_PARALLEL_TEST=1 DOCKER_COMPOSE_VERSION=1.23.2 CODECOV=1
+
+before_install:
+  - chmod +x gradlew;
+
+after_success:
+  - if [ $TRAVIS_BRANCH == "master" ] && [ $CODECOV == 1 ]; then
+    echo "*** send stats to codecov";
+    bash <(curl -s https://codecov.io/bash);
+    fi
+
+script:
+  - echo "*** build and run sequential integration tests (MongoDB $MONGO_VERSION) against a host";
+    ./gradlew clean build -DmongoReplicaSetProperties.mongoDockerImageName=mongo:${MONGO_VERSION};
+  - echo "*** run integration tests (MongoDB $MONGO_VERSION) in docker-only mode";
+    docker-compose -f docker-compose-it-test.yml up -d;
+    docker wait run-it-test-mongodb-replica-set;
+    docker logs run-it-test-mongodb-replica-set;
+  - if [[ $(docker inspect run-it-test-mongodb-replica-set --format='{{.State.ExitCode}}') == '1' ]]; then
+    exit 1;
+    fi
+  - if [ $ADD_PARALLEL_TEST==1 ]; then
+    echo "*** run parallel integration tests (MongoDB $MONGO_VERSION) against a host";
+    ./gradlew integrationTest -DmongoReplicaSetProperties.mongoDockerImageName=mongo:${MONGO_VERSION} -Djunit.jupiter.execution.parallel.enabled=true;
+    fi
+
+before_cache:
+  - rm -f  $HOME/.gradle/caches/modules-2/modules-2.lock
+  - rm -fr $HOME/.gradle/caches/*/plugin-resolution/
+cache:
+  directories:
+    - $HOME/.gradle/caches/
+    - $HOME/.gradle/wrapper/
+    - $HOME/.m2/repository/

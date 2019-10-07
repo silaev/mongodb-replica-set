@@ -1,0 +1,3 @@
+mongoReplicaSetProperties:
+    enabled: false
+    mongoDockerImageName: mongo:4.1.13

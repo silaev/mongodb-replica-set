@@ -1,0 +1,16 @@
+version: "2"
+services:
+  run-it:
+    image: run-it-test-mongodb-replica-set:0.1.0
+    container_name: "run-it-test-mongodb-replica-set"
+    environment:
+      - MONGO_VERSION=${MONGO_VERSION}
+    build:
+      context: .
+      dockerfile: Dockerfile.run-it-test-mongodb-replica-set
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"

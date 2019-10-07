@@ -1,0 +1,2 @@
+mongoReplicaSetProperties:
+    enabled: true

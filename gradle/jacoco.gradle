@@ -1,0 +1,47 @@
+import groovy.transform.Memoized
+
+@Memoized
+private static List<String> getSonarExclusions() {
+    return new File("testcov.exclude").readLines()
+}
+
+jacoco {
+    toolVersion = "0.8.4"
+}
+
+jacocoTestReport {
+    executionData.from = fileTree(buildDir).include("/jacoco/*.exec")
+    reports {
+        xml.enabled true
+        csv.enabled false
+        html.enabled true
+        xml.destination file("${buildDir}/reports/jacoco/report.xml")
+    }
+
+    afterEvaluate {
+        classDirectories.from = files(classDirectories.files.collect {
+            fileTree(dir: it,
+                    exclude: getSonarExclusions())
+        })
+    }
+}
+
+jacocoTestCoverageVerification {
+    executionData.from = fileTree(buildDir).include("/jacoco/*.exec")
+    violationRules {
+        rule {
+            limit {
+                minimum = 0.80
+            }
+        }
+    }
+
+    afterEvaluate {
+        classDirectories.from = files(classDirectories.files.collect {
+            fileTree(dir: it,
+                    exclude: getSonarExclusions())
+        })
+    }
+}
+
+check.dependsOn jacocoTestCoverageVerification
