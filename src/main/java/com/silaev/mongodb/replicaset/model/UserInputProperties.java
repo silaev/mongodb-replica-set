@@ -10,7 +10,7 @@ import lombok.Getter;
  */
 @Builder
 @Getter
-public class UserInputProperties {
+public final class UserInputProperties {
     private final Integer replicaSetNumber;
     private final Integer awaitNodeInitAttempts;
     private final String mongoDockerImageName;

@@ -8,7 +8,7 @@ import lombok.Value;
  * @author Konstantin Silaev
  */
 @Value(staticConstructor = "of")
-public class MongoDbVersion {
+public final class MongoDbVersion {
     private final int major;
     private final int minor;
     private final int patch;

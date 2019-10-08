@@ -4,7 +4,8 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
- * https://docs.mongodb.com/manual/reference/replica-states/
+ * Represents states that a MongoDb node has as per:
+ * <a href="https://docs.mongodb.com/manual/reference/replica-states/">Replica Set Member States</a>
  *
  * @author Konstantin Silaev on 10/3/2019
  */

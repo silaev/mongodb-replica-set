@@ -10,8 +10,8 @@ import lombok.Value;
  */
 @Value(staticConstructor = "of")
 @EqualsAndHashCode(of = {"ip", "replSetPort", "mappedPort"})
-public class MongoSocketAddress {
-    final String ip;
-    final int replSetPort;
-    final int mappedPort;
+public final class MongoSocketAddress {
+    private final String ip;
+    private final int replSetPort;
+    private final int mappedPort;
 }

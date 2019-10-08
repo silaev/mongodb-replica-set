@@ -9,7 +9,7 @@ import lombok.Value;
  * @author Konstantin Silaev
  */
 @Value(staticConstructor = "of")
-public class MongoNode {
+public final class MongoNode {
     private final String ip;
     private final Integer port;
     private final Double health;
