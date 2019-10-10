@@ -26,16 +26,10 @@ env:
 
 before_install:
   - chmod +x gradlew;
+  - chmod +x scripts/after_success.sh;
 
 after_success:
-  - if [ $TRAVIS_BRANCH == "master" ] && [ $CODECOV == 1 ]; then
-    echo "*** send stats to codecov";
-    bash <(curl -s https://codecov.io/bash);
-    fi
-  - if [ $TRAVIS_BRANCH == "master" ] && [ tag is present ]; then
-    echo "*** upload to Bintray";
-    gradlew -PbintrayUser=$BINTRAY_USER -PbintrayApiKey=$BINTRAY_API_KEY -DisPublishing=true bintrayUpload;
-    fi
+    - ./scripts/after_success.sh
 
 script:
   - echo "*** build and run sequential integration tests (MongoDB $MONGO_VERSION) against a host";
