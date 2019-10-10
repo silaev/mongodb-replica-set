@@ -260,7 +260,7 @@ bintray {
 
         pkg {
             repo = 'releases'
-            name = 'mongodb-replicaset'
+            name = 'mongodb-replica-set'
 
             publish = true
 
