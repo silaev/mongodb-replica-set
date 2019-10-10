@@ -1,16 +1,11 @@
-# Java8 MongoDbReplicaSet to construct a full-featured MongoDB cluster for integration tests.   
+# Java8 MongoDbReplicaSet to construct a full-featured MongoDB cluster for integration testing, reproducing production issues, learning distributed systems by the example of MongoDB.   
 [![Build Status](https://travis-ci.org/silaev/mongodb-replica-set.svg?branch=master)](https://travis-ci.org/silaev/mongodb-replica-set)
 [![codecov](https://codecov.io/gh/silaev/mongodb-replica-set/branch/master/graph/badge.svg)](https://codecov.io/gh/silaev/mongodb-replica-set)
 
 #### Prerequisite
 - Java 8+
-- Docker Desktop (was tested against v18.09.2)         
--   OS | Support | Test frequency |
-    :---: | :---: |:---: |
-    Linux | works | every build via Travis CI |
-    Windows | works | manually |
-    OSX | should work<br/>not tested fully | manually |
--   Chart shows local and remote docker support for replicaSetNumber
+- Docker Desktop
+- Chart shows local and remote docker support for replicaSetNumber
 
     replicaSetNumber | local docker host | local docker host running tests from inside a container with mapping the Docker socket | remote docker daemon | availability of an arbiter node |
     :---: | :---: |:---: | :---: | :---: |
@@ -102,7 +97,7 @@ class ITTest {
 You can also use MongoReplicaSet as a non-static field. For example, to have 
 its own instance of MongoReplicaSet for each test (applicable for JUnit). 
  
-See more examples in test sources [mongodb-replica-set on github](https://github.com/silaev/mongodb-replica-set/)
+See more examples in test sources [mongodb-replica-set on github](https://github.com/silaev/mongodb-replica-set/tree/master/src/test/java/com/silaev/mongodb/replicaset)
 
 The example of a JUnit5 test class in a Spring Boot + Spring Data application:
 ```java
@@ -161,10 +156,10 @@ See a full Spring Boot + Spring Data example [wms on github](https://github.com/
 
 #### Motivation
 - Cross-platform solution that doesn't depend on fixed ports;
-- Testing MongoDB transactions to run against an environment close to a production one.
-- Testing production issues by recreating a real MongoDB replica set (currently without shards)
+- Testing MongoDB transactions to run against an environment close to a production one;
+- Testing production issues by recreating a real MongoDB replica set (currently without shards);
 - Education to newcomers to the MongoDB world (learning the behaviour of a distributed NoSQL database while 
-stepping down a node, analyze the election process and so on);
+stepping down a node, analyze the election process and so on).
    
 #### General info
 MongoDB starting form version 4 supports multi-document transactions only on a replica set.
@@ -214,8 +209,8 @@ mongoReplicaSetProperties:
 [The MIT License (MIT)](https://github.com/silaev/mongodb-replica-set/blob/master/LICENSE/)
 
 #### Additional links
-[mongo-replica-set-behind-firewall](https://serverfault.com/questions/815955/mongo-replica-set-behind-firewall)
-[Support different networks](https://jira.mongodb.org/browse/SERVER-1889)
+* [mongo-replica-set-behind-firewall](https://serverfault.com/questions/815955/mongo-replica-set-behind-firewall)
+* [Support different networks](https://jira.mongodb.org/browse/SERVER-1889)
 
 #### Copyright
 Copyright (c) 2019 Konstantin Silaev <silaev256@gmail.com>

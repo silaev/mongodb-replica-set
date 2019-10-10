@@ -3,7 +3,7 @@ import io.franzbecker.gradle.lombok.task.DelombokTask
 buildscript {
     ext {
         junitVersion = '5.5.1'
-        testcontainersVersion = '1.12.0'
+        testcontainersVersion = '1.12.2'
     }
 }
 
@@ -15,12 +15,13 @@ plugins {
     id "com.github.johnrengelman.shadow" version "5.1.0"
     id 'jacoco'
     id 'maven-publish'
+    id "com.jfrog.bintray" version "1.8.4"
 }
 
 apply from: "$rootDir/gradle/jacoco.gradle"
 
 group = 'com.silaev'
-version = '0.1.0'
+version = '0.1.1'
 
 repositories {
     mavenCentral()
@@ -36,7 +37,6 @@ configurations {
 }
 
 dependencies {
-    //implementation platform("org.testcontainers:testcontainers-bom:${testcontainersVersion}")
     propogated("org.testcontainers:testcontainers:${testcontainersVersion}")
     implementation("org.yaml:snakeyaml:1.25")
 
@@ -56,14 +56,12 @@ wrapper {
 
 def junitParallelExecProperty = 'junit.jupiter.execution.parallel.enabled'
 
-test {
-    failFast = true
-}
-
 tasks.withType(Test) { Test task ->
     task.useJUnitPlatform { JUnitPlatformOptions ops ->
         ops.excludeTags("integration-test")
     }
+
+    task.failFast = true
 
     testLogging.showStandardStreams = true
     testLogging.exceptionFormat = 'full'
@@ -84,6 +82,8 @@ task integrationTest(type: Test) { Test task ->
     if (!task.systemProperties.isEmpty()) {
         println("Detected test system properties: " + task.systemProperties)
     }
+
+    task.failFast = true
 
     testLogging.showStandardStreams = true
     testLogging.exceptionFormat = 'full'
@@ -182,8 +182,8 @@ publishing {
             artifact javadocJar
 
             pom {
-                name = 'Mongodb replica set extension'
-                description = 'JUnit5 Java8 Register extension to construct a full-featured MongoDB cluster for integration tests'
+                name = 'MongoDB replica set'
+                description = 'Java8 MongoDbReplicaSet to construct a full-featured MongoDB cluster for integration testing, reproducing production issues, learning distributed systems by the example of MongoDB'
                 url = 'https://github.com/silaev/mongodb-replica-set'
 
                 licenses {
@@ -233,6 +233,46 @@ tasks.withType(PublishToMavenLocal) {
     }
     doLast {
         System.properties.setProperty('isPublishing', "false")
+    }
+}
+
+tasks.withType(PublishToMavenRepository) {
+    onlyIf {
+        System.properties.containsKey(isPublishingProperty) &&
+            System.properties.get(isPublishingProperty) == "true"
+    }
+    doLast {
+        System.properties.setProperty('isPublishing', "false")
+    }
+}
+
+def bintrayUser = 'bintrayUser'
+def bintrayApiKey = 'bintrayApiKey'
+bintray {
+    if (project.hasProperty(bintrayUser) &&
+        project.hasProperty(bintrayApiKey)
+    ) {
+        user = project.property(bintrayUser)
+        key = project.property(bintrayApiKey)
+
+        publications = ['shadow']
+        override = false
+
+        pkg {
+            repo = 'releases'
+            name = 'mongodb-replicaset'
+
+            publish = true
+
+            version {
+                name = project.version
+                vcsTag = project.version
+                released = new Date()
+                gpg {
+                    sign = true
+                }
+            }
+        }
     }
 }
 

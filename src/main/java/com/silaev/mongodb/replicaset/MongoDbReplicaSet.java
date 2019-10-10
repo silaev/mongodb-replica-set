@@ -31,7 +31,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 /**
- * Constructs a full-featured MongoDB cluster for integration tests.
+ * Constructs a full-featured MongoDB cluster for integration testing, reproducing production issues, learning distributed systems by the example of MongoDB.
  * <p>Supports Mongo DB version 3.6.14 and up.
  *
  * <blockquote>
@@ -352,7 +352,7 @@ public class MongoDbReplicaSet implements Startable {
                 "If you don't want to modify it, then consider the following:" +
                 "\n1) set replicaSetNumber to 1;" +
                 "\n2) use remote docker daemon;" +
-                "\n3) use local docker host running tests from inside a container with mapping the Docker socket"
+                "\n3) use local docker host running tests from inside a container with mapping the Docker socket."
         );
     }
 
