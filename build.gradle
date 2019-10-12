@@ -20,8 +20,8 @@ plugins {
 
 apply from: "$rootDir/gradle/jacoco.gradle"
 
-group = 'com.silaev'
-version = '0.1.1'
+group = 'com.github.silaev'
+version = '0.2.0'
 
 repositories {
     mavenCentral()
@@ -117,7 +117,7 @@ task delombok(type: DelombokTask) {
 shadowJar {
     //https://github.com/johnrengelman/shadow/issues/463
     classifier = ''
-    relocate 'org.yaml.snakeyaml', 'com.silaev.mongodb.replicaset.shaded'
+    relocate 'org.yaml.snakeyaml', 'com.github.silaev.mongodb.replicaset.shaded'
     dependencies {
         include(dependency('org.yaml:snakeyaml'))
     }
@@ -260,7 +260,7 @@ bintray {
 
         pkg {
             repo = 'releases'
-            name = 'mongodb-replica-set'
+            name = project.name
 
             publish = true
 

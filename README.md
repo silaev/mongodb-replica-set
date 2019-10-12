@@ -1,4 +1,4 @@
-# Java8 MongoDbReplicaSet to construct a full-featured MongoDB cluster for integration testing, reproducing production issues, learning distributed systems by the example of MongoDB.   
+# Java8 MongoDbReplicaSet to construct a full-featured MongoDB cluster for integration testing, reproducing production issues, learning distributed systems by the example of MongoDB   
 [![Build Status](https://travis-ci.org/silaev/mongodb-replica-set.svg?branch=master)](https://travis-ci.org/silaev/mongodb-replica-set)
 [![codecov](https://codecov.io/gh/silaev/mongodb-replica-set/branch/master/graph/badge.svg)](https://codecov.io/gh/silaev/mongodb-replica-set)
 
@@ -12,11 +12,8 @@
     1 | + | + | + | - |
     from 2 to 7 (including)  | only if adding <b>127.0.0.1 dockerhost</b> to the OS host file | + | + | + |
 
-Tips:
-- A single node replica set is the fastest one among others. To use only it, consider [Testcontainers MongoDb module on GitHub](https://github.com/testcontainers/testcontainers-java/tree/master/modules/mongodb)   
-- To use remote Docker daemon:
-    - check that [.testcontainers.properties](https://www.testcontainers.org/features/configuration/) file has `docker.client.strategy=org.testcontainers.dockerclient.EnvironmentAndSystemPropertyClientProviderStrategy`
-    - set your DOCKER_HOST environment variable       
+Tip:
+A single node replica set is the fastest one among others. To use only it, consider the [Testcontainers MongoDb module on GitHub](https://github.com/testcontainers/testcontainers-java/tree/master/modules/mongodb)   
     
 #### Getting it
 - Gradle:
@@ -50,7 +47,6 @@ dependencies {
     </dependency>
 </dependencies>
 ```
-To see logs, consider adding a slf4j implementation (Logback is recommended) if you don't have it in your application.
     
 #### MongoDB versions that MongoReplicaSet is constantly tested against
 version | transaction support |
@@ -62,7 +58,7 @@ version | transaction support |
 #### Examples (note that MongoReplicaSet is test framework agnostic)
 The example of a JUnit5 test class:
 ```java
-import com.silaev.mongodb.replicaset.MongoDbReplicaSet;
+import com.github.silaev.mongodb.replicaset.MongoDbReplicaSet;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -97,11 +93,11 @@ class ITTest {
 You can also use MongoReplicaSet as a non-static field. For example, to have 
 its own instance of MongoReplicaSet for each test (applicable for JUnit). 
  
-See more examples in test sources [mongodb-replica-set on github](https://github.com/silaev/mongodb-replica-set/tree/master/src/test/java/com/silaev/mongodb/replicaset)
+See more examples in test sources [mongodb-replica-set on github](https://github.com/silaev/mongodb-replica-set/tree/master/src/test/java/com/github/silaev/mongodb/replicaset)
 
 The example of a JUnit5 test class in a Spring Boot + Spring Data application:
 ```java
-import com.silaev.mongodb.replicaset.MongoDbReplicaSet;
+import com.github.silaev.mongodb.replicaset.MongoDbReplicaSet;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;

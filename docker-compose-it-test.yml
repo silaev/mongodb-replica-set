@@ -1,7 +1,7 @@
 version: "2"
 services:
   run-it:
-    image: run-it-test-mongodb-replica-set:0.1.0
+    image: run-it-test-mongodb-replica-set:0.2.0
     container_name: "run-it-test-mongodb-replica-set"
     environment:
       - MONGO_VERSION=${MONGO_VERSION}
