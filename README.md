@@ -18,31 +18,17 @@ A single node replica set is the fastest one among others. To use only it, consi
 #### Getting it
 - Gradle:
 ```groovy
-allprojects {
-    repositories {
-        maven { url "https://jitpack.io" }
-    }
-}
-   
 dependencies {
-    testImplementation("com.github.silaev:mongodb-replica-set:0.1.0")
+    testCompile("com.github.silaev:mongodb-replica-set:0.2.0")
 }
  ```
 - Maven:
-```xml
-<repositories>
-    <repository>
-        <id>jitpack.io</id>
-        <url>https://jitpack.io</url>
-	</repository>
-</repositories>
-```
 ```xml
 <dependencies>
     <dependency>
         <groupId>com.github.silaev</groupId>
         <artifactId>mongodb-replica-set</artifactId>
-	    <version>0.1.0</version>
+        <version>0.2.0</version>
         <scope>test</scope>
     </dependency>
 </dependencies>
@@ -93,7 +79,7 @@ class ITTest {
 You can also use MongoReplicaSet as a non-static field. For example, to have 
 its own instance of MongoReplicaSet for each test (applicable for JUnit). 
  
-See more examples in test sources [mongodb-replica-set on github](https://github.com/silaev/mongodb-replica-set/tree/master/src/test/java/com/github/silaev/mongodb/replicaset)
+See more examples in the test sources [mongodb-replica-set on github](https://github.com/silaev/mongodb-replica-set/tree/master/src/test/java/com/github/silaev/mongodb/replicaset/integration)
 
 The example of a JUnit5 test class in a Spring Boot + Spring Data application:
 ```java
