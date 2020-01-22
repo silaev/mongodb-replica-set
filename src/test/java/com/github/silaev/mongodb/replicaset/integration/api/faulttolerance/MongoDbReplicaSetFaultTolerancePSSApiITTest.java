@@ -1,4 +1,4 @@
-package com.github.silaev.mongodb.replicaset.integration.api;
+package com.github.silaev.mongodb.replicaset.integration.api.faulttolerance;
 
 import com.github.silaev.mongodb.replicaset.MongoDbReplicaSet;
 import com.github.silaev.mongodb.replicaset.core.IntegrationTest;
@@ -22,13 +22,15 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
+ * A fault tolerance tests for Primary with Two Secondary Members (P-S-S)
+ * <p>
  * To use ExecutionMode.CONCURRENT in action,
  * run ./gradlew clean integrationTest -Djunit.jupiter.execution.parallel.enabled=true
  */
 @Execution(ExecutionMode.CONCURRENT)
 @IntegrationTest
 @Slf4j
-class MongoDbReplicaSetFaultToleranceApiITTest {
+class MongoDbReplicaSetFaultTolerancePSSApiITTest {
     private static final int REPLICA_SET_NUMBER = 3;
 
     private final MongoDbReplicaSet mongoReplicaSet = MongoDbReplicaSet.builder()
@@ -43,65 +45,6 @@ class MongoDbReplicaSetFaultToleranceApiITTest {
     @AfterEach
     void tearDown() {
         mongoReplicaSet.stop();
-    }
-
-    @Test
-    void shouldTestFailoverBecauseOfContainerKill() {
-        //GIVEN
-        val mongoNodes = mongoReplicaSet.getMongoRsStatus().getMembers();
-        val nodeStatesBeforeFailover = getNodeStates(mongoNodes);
-        val currentMasterNode = mongoReplicaSet.getMasterMongoNode(mongoNodes);
-
-        //WHEN: KILL NODE
-        mongoReplicaSet.killNode(currentMasterNode);
-        val actualNodeStatesRightAfterKilling =
-            getNodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
-
-        //THEN
-        //1. before failover state
-        assertThat(
-            nodeStatesBeforeFailover,
-            hasItems(
-                ReplicaSetMemberState.PRIMARY,
-                ReplicaSetMemberState.SECONDARY,
-                ReplicaSetMemberState.SECONDARY
-            )
-        );
-        assertEquals(REPLICA_SET_NUMBER, nodeStatesBeforeFailover.size());
-
-        //2. right after failover state
-        assertThat(
-            actualNodeStatesRightAfterKilling,
-            anyOf(
-                hasItems(
-                    ReplicaSetMemberState.PRIMARY,
-                    ReplicaSetMemberState.SECONDARY,
-                    ReplicaSetMemberState.SECONDARY
-                ),
-                hasItems(
-                    ReplicaSetMemberState.DOWN,
-                    ReplicaSetMemberState.SECONDARY,
-                    ReplicaSetMemberState.SECONDARY
-                )
-            )
-        );
-        assertEquals(REPLICA_SET_NUMBER, actualNodeStatesRightAfterKilling.size());
-
-        //WHEN: WAIT FOR REELECTION
-        mongoReplicaSet.waitForMasterReelection(currentMasterNode);
-        mongoReplicaSet.removeNodeFromReplSet(currentMasterNode);
-        val actualNodeStatesAfterElection =
-            getNodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
-
-        //THEN: AFTER ELECTION COMPLETES
-        assertThat(
-            actualNodeStatesAfterElection,
-            hasItems(
-                ReplicaSetMemberState.PRIMARY,
-                ReplicaSetMemberState.SECONDARY
-            )
-        );
-        assertEquals(REPLICA_SET_NUMBER - 1, actualNodeStatesAfterElection.size());
     }
 
     @Test
@@ -165,7 +108,7 @@ class MongoDbReplicaSetFaultToleranceApiITTest {
     }
 
     @Test
-    void shouldTestFailoverBecauseOfContainerNetworkDisconnect() throws InterruptedException {
+    void shouldTestFailoverBecauseOfContainerNetworkDisconnect() {
         //GIVEN
         val mongoNodes = mongoReplicaSet.getMongoRsStatus().getMembers();
         val nodeStatesBeforeFailover = getNodeStates(mongoNodes);
@@ -209,7 +152,6 @@ class MongoDbReplicaSetFaultToleranceApiITTest {
 
         //WHEN: WAIT FOR REELECTION
         mongoReplicaSet.waitForMasterReelection(currentMasterNode);
-
         val actualNodeStatesAfterElection =
             getNodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
 
@@ -226,6 +168,7 @@ class MongoDbReplicaSetFaultToleranceApiITTest {
 
         //WHEN: CONNECT BACK
         mongoReplicaSet.connectNodeToNetwork(currentMasterNode);
+        mongoReplicaSet.waitForAllMongoNodesUp();
         val actualNodeStatesAfterConnectingBack =
             getNodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
 
@@ -239,6 +182,65 @@ class MongoDbReplicaSetFaultToleranceApiITTest {
             )
         );
         assertEquals(REPLICA_SET_NUMBER, actualNodeStatesAfterConnectingBack.size());
+    }
+
+    @Test
+    void shouldTestFailoverBecauseOfContainerKill() {
+        //GIVEN
+        val mongoNodes = mongoReplicaSet.getMongoRsStatus().getMembers();
+        val nodeStatesBeforeFailover = getNodeStates(mongoNodes);
+        val currentMasterNode = mongoReplicaSet.getMasterMongoNode(mongoNodes);
+
+        //WHEN: KILL NODE
+        mongoReplicaSet.killNode(currentMasterNode);
+        val actualNodeStatesRightAfterKilling =
+            getNodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
+
+        //THEN
+        //1. before failover state
+        assertThat(
+            nodeStatesBeforeFailover,
+            hasItems(
+                ReplicaSetMemberState.PRIMARY,
+                ReplicaSetMemberState.SECONDARY,
+                ReplicaSetMemberState.SECONDARY
+            )
+        );
+        assertEquals(REPLICA_SET_NUMBER, nodeStatesBeforeFailover.size());
+
+        //2. right after failover state
+        assertThat(
+            actualNodeStatesRightAfterKilling,
+            anyOf(
+                hasItems(
+                    ReplicaSetMemberState.PRIMARY,
+                    ReplicaSetMemberState.SECONDARY,
+                    ReplicaSetMemberState.SECONDARY
+                ),
+                hasItems(
+                    ReplicaSetMemberState.DOWN,
+                    ReplicaSetMemberState.SECONDARY,
+                    ReplicaSetMemberState.SECONDARY
+                )
+            )
+        );
+        assertEquals(REPLICA_SET_NUMBER, actualNodeStatesRightAfterKilling.size());
+
+        //WHEN: WAIT FOR REELECTION
+        mongoReplicaSet.waitForMasterReelection(currentMasterNode);
+        mongoReplicaSet.removeNodeFromReplSet(currentMasterNode);
+        val actualNodeStatesAfterElection =
+            getNodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
+
+        //THEN: AFTER ELECTION COMPLETES
+        assertThat(
+            actualNodeStatesAfterElection,
+            hasItems(
+                ReplicaSetMemberState.PRIMARY,
+                ReplicaSetMemberState.SECONDARY
+            )
+        );
+        assertEquals(REPLICA_SET_NUMBER - 1, actualNodeStatesAfterElection.size());
     }
 
     @NotNull

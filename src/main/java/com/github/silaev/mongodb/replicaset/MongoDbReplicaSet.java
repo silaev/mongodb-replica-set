@@ -447,7 +447,7 @@ public class MongoDbReplicaSet implements Startable {
         final int awaitNodeInitAttempts
     ) {
         log.debug("Searching for a master node in a replica set, up to {} attempts", awaitNodeInitAttempts);
-        val execResultWaitForAnyMaster = waitForMongoMasterNodeInit(
+        val execResultWaitForAnyMaster = waitForCondition(
             mongoContainer,
             "typeof rs.status().members.find(o => o.state == 1) === 'undefined'",
             awaitNodeInitAttempts,
@@ -464,7 +464,7 @@ public class MongoDbReplicaSet implements Startable {
         val masterNode = findMasterElected(mongoContainer);
 
         log.debug("Verifying that a node is a master one, up to {} attempts", awaitNodeInitAttempts);
-        val execResultWaitForMaster = waitForMongoMasterNodeInit(
+        val execResultWaitForMaster = waitForCondition(
             masterNode,
             "db.runCommand( { isMaster: 1 } ).ismaster==false",
             awaitNodeInitAttempts, "verifying that a node is a master one"
@@ -527,7 +527,7 @@ public class MongoDbReplicaSet implements Startable {
         final int awaitNodeInitAttempts
     ) {
         log.debug("Awaiting a master node, up to {} attempts", awaitNodeInitAttempts);
-        val execResultWaitForMaster = waitForMongoMasterNodeInit(
+        val execResultWaitForMaster = waitForCondition(
             mongoContainer,
             "db.runCommand( { isMaster: 1 } ).ismaster==false",
             awaitNodeInitAttempts, "awaiting for a node to be a master one"
@@ -599,7 +599,7 @@ public class MongoDbReplicaSet implements Startable {
             "initializing an arbiter node"
         );
 
-        val execResultWaitArbiter = waitForMongoMasterNodeInit(
+        val execResultWaitArbiter = waitForCondition(
             masterNode,
             "typeof rs.status().members.find(o => o.state == 7) === 'undefined'",
             awaitNodeInitAttempts,
@@ -647,7 +647,7 @@ public class MongoDbReplicaSet implements Startable {
         }
     }
 
-    private Container.ExecResult waitForMongoMasterNodeInit(
+    private Container.ExecResult waitForCondition(
         final GenericContainer mongoContainer,
         final String condition,
         final int awaitNodeInitAttempts,
@@ -768,6 +768,8 @@ public class MongoDbReplicaSet implements Startable {
     public void stopNode(
         final MongoNode mongoNode
     ) {
+        validateFaultToleranceTestSupportAvailability();
+
         val mongoSocketAddress = buildMongoSocketAddress(mongoNode);
         val genericContainer = extractGenericContainer(mongoSocketAddress);
         genericContainer.stop();
@@ -783,6 +785,8 @@ public class MongoDbReplicaSet implements Startable {
     public void killNode(
         final MongoNode mongoNode
     ) {
+        validateFaultToleranceTestSupportAvailability();
+
         val mongoSocketAddress = buildMongoSocketAddress(mongoNode);
         val genericContainer = extractGenericContainer(mongoSocketAddress);
         DockerClientFactory.instance().client()
@@ -800,6 +804,8 @@ public class MongoDbReplicaSet implements Startable {
     public synchronized void disconnectNodeFromNetwork(
         final MongoNode mongoNode
     ) {
+        validateFaultToleranceTestSupportAvailability();
+
         val mongoSocketAddress = buildMongoSocketAddress(mongoNode);
         val genericContainer = extractGenericContainer(mongoSocketAddress);
 
@@ -822,6 +828,7 @@ public class MongoDbReplicaSet implements Startable {
     public synchronized void connectNodeToNetwork(
         final MongoNode mongoNode
     ) {
+        validateFaultToleranceTestSupportAvailability();
         verifyWorkingNodeStoreIsNotEmpty();
 
         val disconnectedMongoSocketAddress = buildMongoSocketAddress(mongoNode);
@@ -852,6 +859,16 @@ public class MongoDbReplicaSet implements Startable {
         disconnectedNodeStore.remove(disconnectedMongoSocketAddress);
     }
 
+    private void validateFaultToleranceTestSupportAvailability() {
+        if (getReplicaSetNumber() == 1) {
+            throw new IllegalStateException(
+                "This operation is not supported for a single node replica set. " +
+                    "Please, construct at least a Primary with Two Secondary Members(P-S-S) or " +
+                    "Primary with a Secondary and an Arbiter (PSA) replica set"
+            );
+        }
+    }
+
     private void addNodeToReplSet(GenericContainer masterNode, MongoSocketAddress newMongoSocketAddress) {
         val execResultAddNode = execMongoDbCommandInContainer(
             findMasterElected(masterNode),
@@ -875,6 +892,7 @@ public class MongoDbReplicaSet implements Startable {
      * @see <a href="https://docs.mongodb.com/manual/reference/method/rs.remove/">mongodb remove from a replica set</a>
      */
     public void removeNodeFromReplSet(final MongoNode mongoNodeToRemove) {
+        validateFaultToleranceTestSupportAvailability();
         verifyWorkingNodeStoreIsNotEmpty();
 
         removeNodeFromReplSet(
@@ -931,6 +949,7 @@ public class MongoDbReplicaSet implements Startable {
     public void waitForMasterReelection(
         final MongoNode previousMasterMongoNode
     ) {
+        validateFaultToleranceTestSupportAvailability();
         verifyWorkingNodeStoreIsNotEmpty();
 
         val prevMasterName = String.format(
@@ -942,7 +961,7 @@ public class MongoDbReplicaSet implements Startable {
             "Waiting for the reelection of %s",
             prevMasterName
         );
-        val execResultMasterReelection = waitForMongoMasterNodeInit(
+        val execResultMasterReelection = waitForCondition(
             workingNodeStore.values().iterator().next(),
             String.format(
                 "rs.status().members.find(o => o.state == 1 && o.name!='%s')===undefined",
@@ -953,6 +972,24 @@ public class MongoDbReplicaSet implements Startable {
         );
         checkMongoNodeExitCode(execResultMasterReelection, reelectionMessage);
     }
+
+    /**
+     * Waits until a replica set has STARTUP, STARTUP2 nodes.
+     */
+    public void waitForAllMongoNodesUp() {
+        validateFaultToleranceTestSupportAvailability();
+        verifyWorkingNodeStoreIsNotEmpty();
+
+        val waitingMessage = "Waiting for all nodes are up and running";
+        val execResultWaitForNodesUp = waitForCondition(
+            workingNodeStore.values().iterator().next(),
+            "rs.status().members.find(o => o.state == 0 || o.state == 5)!=undefined",
+            getAwaitNodeInitAttempts(),
+            "Waiting for all nodes and and running"
+        );
+        checkMongoNodeExitCode(execResultWaitForNodesUp, waitingMessage);
+    }
+
 
     private void verifyWorkingNodeStoreIsNotEmpty() {
         if (workingNodeStore.isEmpty()) {
@@ -967,6 +1004,8 @@ public class MongoDbReplicaSet implements Startable {
      * @return MongoNode representing a master node in a replica set.
      */
     public MongoNode getMasterMongoNode(List<MongoNode> mongoNodes) {
+        validateFaultToleranceTestSupportAvailability();
+
         return mongoNodes.stream()
             .filter(x -> x.getState() == ReplicaSetMemberState.PRIMARY)
             .findAny()
