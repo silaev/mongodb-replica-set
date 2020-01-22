@@ -28,6 +28,7 @@ import static org.mockito.Mockito.when;
  */
 @ExtendWith(MockitoExtension.class)
 class MongoDbReplicaSetTest {
+    private static final int CONTAINER_EXIT_CODE_ERROR = -1;
     @Mock
     StringToMongoRsStatusConverter converter;
 
@@ -72,7 +73,7 @@ class MongoDbReplicaSetTest {
         val nodeName = "nodeName";
         val awaitNodeInitAttempts = 29;
         when(execResult.getExitCode())
-            .thenReturn(MongoDbReplicaSet.ERROR_CONTAINER_EXIT_CODE);
+            .thenReturn(CONTAINER_EXIT_CODE_ERROR);
         val execResultStatusCommand = mock(Container.ExecResult.class);
         doReturn(execResultStatusCommand)
             .when(replicaSet)
@@ -99,7 +100,7 @@ class MongoDbReplicaSetTest {
         val command = "command";
         val execResult = mock(Container.ExecResult.class);
         when(execResult.getExitCode())
-            .thenReturn(MongoDbReplicaSet.ERROR_CONTAINER_EXIT_CODE);
+            .thenReturn(CONTAINER_EXIT_CODE_ERROR);
         when(execResult.getStderr()).thenReturn("stderr");
 
         //WHEN

@@ -6,14 +6,17 @@ import com.github.silaev.mongodb.replicaset.exception.IncorrectUserInputExceptio
 import com.github.silaev.mongodb.replicaset.exception.MongoNodeInitializationException;
 import com.github.silaev.mongodb.replicaset.model.ApplicationProperties;
 import com.github.silaev.mongodb.replicaset.model.MongoDbVersion;
+import com.github.silaev.mongodb.replicaset.model.MongoNode;
 import com.github.silaev.mongodb.replicaset.model.MongoRsStatus;
 import com.github.silaev.mongodb.replicaset.model.MongoSocketAddress;
+import com.github.silaev.mongodb.replicaset.model.ReplicaSetMemberState;
 import com.github.silaev.mongodb.replicaset.model.UserInputProperties;
 import com.github.silaev.mongodb.replicaset.util.StringUtils;
 import lombok.Builder;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
+import org.jetbrains.annotations.NotNull;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -22,6 +25,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startable;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -160,7 +164,7 @@ import java.util.stream.Stream;
 @Slf4j
 public class MongoDbReplicaSet implements Startable {
     public static final int MAX_VOTING_MEMBERS = 7;
-    static final int ERROR_CONTAINER_EXIT_CODE = 1;
+    static final int CONTAINER_EXIT_CODE_OK = 0;
     static final String STATUS_COMMAND = "rs.status()";
     private static final String CLASS_NAME = MongoDbReplicaSet.class.getCanonicalName();
     private static final String LOCALHOST = "localhost";
@@ -181,6 +185,8 @@ public class MongoDbReplicaSet implements Startable {
      */
     private final ConcurrentMap<MongoSocketAddress, GenericContainer> workingNodeStore;
     private final ConcurrentMap<String, Startable> supplementaryNodeStore;
+    private final ConcurrentMap<MongoSocketAddress, GenericContainer> disconnectedNodeStore;
+    private final Network network;
 
     @Builder
     private MongoDbReplicaSet(
@@ -205,6 +211,8 @@ public class MongoDbReplicaSet implements Startable {
         this.statusConverter = new StringToMongoRsStatusConverter();
         this.workingNodeStore = new ConcurrentHashMap<>();
         this.supplementaryNodeStore = new ConcurrentHashMap<>();
+        this.disconnectedNodeStore = new ConcurrentHashMap<>();
+        this.network = Network.newNetwork();
     }
 
     MongoDbReplicaSet(
@@ -219,6 +227,8 @@ public class MongoDbReplicaSet implements Startable {
         this.statusConverter = statusConverter;
         this.workingNodeStore = new ConcurrentHashMap<>();
         this.supplementaryNodeStore = new ConcurrentHashMap<>();
+        this.disconnectedNodeStore = new ConcurrentHashMap<>();
+        this.network = Network.newNetwork();
     }
 
     public String getReplicaSetUrl() {
@@ -247,9 +257,13 @@ public class MongoDbReplicaSet implements Startable {
     @Override
     public synchronized void stop() {
         Stream.concat(
-            supplementaryNodeStore.values().stream(),
-            workingNodeStore.values().stream()
+            disconnectedNodeStore.values().stream(),
+            Stream.concat(
+                supplementaryNodeStore.values().stream(),
+                workingNodeStore.values().stream()
+            )
         ).forEach(Startable::stop);
+        network.close();
     }
 
     public boolean isEnabled() {
@@ -297,7 +311,6 @@ public class MongoDbReplicaSet implements Startable {
         }
 
         val dockerHostName = getDockerHostName();
-        val network = Network.newNetwork();
         val replicaSetNumber = properties.getReplicaSetNumber();
 
         GenericContainer mongoContainer = null;
@@ -384,6 +397,13 @@ public class MongoDbReplicaSet implements Startable {
             "initializing a master node"
         );
 
+        return checkAndGetMasterNode(mongoContainer, awaitNodeInitAttempts);
+    }
+
+    private GenericContainer checkAndGetMasterNode(
+        final GenericContainer mongoContainer,
+        final int awaitNodeInitAttempts
+    ) {
         return getReplicaSetNumber() == 1
             ? checkAndGetMasterNodeInSingleNodeReplicaSet(mongoContainer, awaitNodeInitAttempts)
             : checkAndGetMasterNodeInMultiNodeReplicaSet(mongoContainer, awaitNodeInitAttempts);
@@ -459,29 +479,47 @@ public class MongoDbReplicaSet implements Startable {
         return masterNode;
     }
 
-    private GenericContainer findMasterElected(final GenericContainer mongoContainer) {
+    private GenericContainer findMasterElected(
+        final GenericContainer mongoContainer
+    ) {
         val execResultMasterAddress = execMongoDbCommandInContainer(
             mongoContainer,
             "rs.status().members.find(o => o.state == 1).name"
         );
         checkMongoNodeExitCode(execResultMasterAddress, "finding a master node");
-        val mongoSocketAddress =
+        final MongoSocketAddress mongoSocketAddress =
             Optional.ofNullable(statusConverter.formatToJsonString(execResultMasterAddress.getStdout()))
                 .map(StringUtils::getArrayByDelimiter)
                 .map(a -> {
                         val port = Integer.parseInt(a[1]);
-                        return MongoSocketAddress.of(a[0], port, port);
+                        return MongoSocketAddress.builder()
+                            .ip(a[0])
+                            .replSetPort(port)
+                            .mappedPort(port)
+                            .build();
                     }
                 ).orElseThrow(
-                () -> new IllegalArgumentException("Cannot find an address in MongoDb reply")
+                () -> new IllegalArgumentException("Cannot find an address in a MongoDb reply")
             );
         log.debug("Found the master elected: {}", mongoSocketAddress);
 
-        return Optional.ofNullable(workingNodeStore.get(mongoSocketAddress))
+        return extractGenericContainer(mongoSocketAddress);
+    }
+
+    private GenericContainer extractGenericContainer(
+        final ConcurrentMap<MongoSocketAddress, GenericContainer> nodeStore, final MongoSocketAddress mongoSocketAddress
+    ) {
+        return Optional.ofNullable(nodeStore.get(mongoSocketAddress))
             .orElseThrow(() -> new IllegalStateException(
-                    String.format("Cannot find a master node in a local store by %s", mongoSocketAddress)
+                    String.format("Cannot find a node in a working node store by %s", mongoSocketAddress)
                 )
             );
+    }
+
+    private GenericContainer extractGenericContainer(
+        final MongoSocketAddress mongoSocketAddress
+    ) {
+        return extractGenericContainer(workingNodeStore, mongoSocketAddress);
     }
 
     private GenericContainer checkAndGetMasterNodeInSingleNodeReplicaSet(
@@ -512,10 +550,22 @@ public class MongoDbReplicaSet implements Startable {
     ) {
         if (LOCALHOST.equals(containerIpAddress)) {
             return (getReplicaSetNumber() == 1)
-                ? MongoSocketAddress.of(LOCALHOST, MONGO_DB_INTERNAL_PORT, port)
-                : MongoSocketAddress.of(getDockerHostName(), port, port);
+                ? MongoSocketAddress.builder()
+                .ip(LOCALHOST)
+                .replSetPort(MONGO_DB_INTERNAL_PORT)
+                .mappedPort(port)
+                .build()
+                : MongoSocketAddress.builder()
+                .ip(getDockerHostName())
+                .replSetPort(port)
+                .mappedPort(port)
+                .build();
         } else {
-            return MongoSocketAddress.of(containerIpAddress, port, port);
+            return MongoSocketAddress.builder()
+                .ip(containerIpAddress)
+                .replSetPort(port)
+                .mappedPort(port)
+                .build();
         }
     }
 
@@ -569,7 +619,7 @@ public class MongoDbReplicaSet implements Startable {
         final String nodeName,
         final int awaitNodeInitAttempts
     ) {
-        if (execResultWaitForMaster.getExitCode() == ERROR_CONTAINER_EXIT_CODE) {
+        if (execResultWaitForMaster.getExitCode() != CONTAINER_EXIT_CODE_OK) {
             val errorMessage = String.format(
                 "The %s node was not initialized in a set timeout: %d attempts. Replica set status: %s",
                 nodeName,
@@ -586,7 +636,7 @@ public class MongoDbReplicaSet implements Startable {
         final Container.ExecResult execResult,
         final String commandDescription
     ) {
-        if (execResult.getExitCode() == ERROR_CONTAINER_EXIT_CODE) {
+        if (execResult.getExitCode() != CONTAINER_EXIT_CODE_OK) {
             val errorMessage = String.format(
                 "Error occurred while %s: %s",
                 commandDescription,
@@ -707,5 +757,221 @@ public class MongoDbReplicaSet implements Startable {
             );
         mongoDbContainer.start();
         return mongoDbContainer;
+    }
+
+    /**
+     * Stops a Mongo node (a Docker container).
+     *
+     * @param mongoNode a node to stop.
+     * @see <a href="https://docs.docker.com/engine/reference/commandline/stop/">docker stop</a>
+     */
+    public void stopNode(
+        final MongoNode mongoNode
+    ) {
+        val mongoSocketAddress = buildMongoSocketAddress(mongoNode);
+        val genericContainer = extractGenericContainer(mongoSocketAddress);
+        genericContainer.stop();
+        workingNodeStore.remove(mongoSocketAddress);
+    }
+
+    /**
+     * Kills a Mongo node (a Docker container).
+     *
+     * @param mongoNode a node to kill
+     * @see <a href="https://docs.docker.com/engine/reference/commandline/kill/">docker kill</a>
+     */
+    public void killNode(
+        final MongoNode mongoNode
+    ) {
+        val mongoSocketAddress = buildMongoSocketAddress(mongoNode);
+        val genericContainer = extractGenericContainer(mongoSocketAddress);
+        DockerClientFactory.instance().client()
+            .killContainerCmd(genericContainer.getContainerId())
+            .exec();
+        workingNodeStore.remove(mongoSocketAddress);
+    }
+
+    /**
+     * Disconnects a Mongo node (a Docker container) from its network.
+     *
+     * @param mongoNode a node to disconnect.
+     * @see <a href="https://docs.docker.com/engine/reference/commandline/network_disconnect/">docker network disconnect</a>
+     */
+    public synchronized void disconnectNodeFromNetwork(
+        final MongoNode mongoNode
+    ) {
+        val mongoSocketAddress = buildMongoSocketAddress(mongoNode);
+        val genericContainer = extractGenericContainer(mongoSocketAddress);
+
+        DockerClientFactory.instance().client().disconnectFromNetworkCmd()
+            .withContainerId(genericContainer.getContainerId())
+            .withNetworkId(network.getId())
+            .exec();
+        workingNodeStore.remove(mongoSocketAddress);
+        disconnectedNodeStore.putIfAbsent(mongoSocketAddress, genericContainer);
+    }
+
+    /**
+     * Connects a Mongo node (a Docker container) back to its network.
+     * Beware that a container port changes after this operation
+     * because of a container restart.
+     *
+     * @param mongoNode a node to connect.
+     * @see <a href="https://docs.docker.com/engine/reference/commandline/network_connect/">docker network connect</a>
+     */
+    public synchronized void connectNodeToNetwork(
+        final MongoNode mongoNode
+    ) {
+        verifyWorkingNodeStoreIsNotEmpty();
+
+        val disconnectedMongoSocketAddress = buildMongoSocketAddress(mongoNode);
+        val disconnectedNode = extractGenericContainer(
+            disconnectedNodeStore,
+            disconnectedMongoSocketAddress
+        );
+
+        DockerClientFactory.instance().client().connectToNetworkCmd()
+            .withContainerId(disconnectedNode.getContainerId())
+            .withNetworkId(network.getId())
+            .exec();
+
+        restartGenericContainer(disconnectedNode);
+
+        val masterNode = findMasterElected(workingNodeStore.values().iterator().next());
+
+        removeNodeFromReplSet(disconnectedMongoSocketAddress, masterNode);
+
+        val newMongoSocketAddress = getMongoSocketAddress(
+            mongoNode.getIp(),
+            disconnectedNode.getMappedPort(MONGO_DB_INTERNAL_PORT)
+        );
+
+        addNodeToReplSet(masterNode, newMongoSocketAddress);
+
+        workingNodeStore.put(newMongoSocketAddress, disconnectedNode);
+        disconnectedNodeStore.remove(disconnectedMongoSocketAddress);
+    }
+
+    private void addNodeToReplSet(GenericContainer masterNode, MongoSocketAddress newMongoSocketAddress) {
+        val execResultAddNode = execMongoDbCommandInContainer(
+            findMasterElected(masterNode),
+            String.format(
+                "rs.add(\"%s:%d\")",
+                newMongoSocketAddress.getIp(),
+                newMongoSocketAddress.getMappedPort()
+            )
+        );
+        log.debug("Add a node: {} to a replica set, stdout: {}", newMongoSocketAddress, execResultAddNode.getStdout());
+        checkMongoNodeExitCode(
+            execResultAddNode,
+            "Adding a node"
+        );
+    }
+
+    /**
+     * Removes a node from a replica set configuration.
+     *
+     * @param mongoNodeToRemove a node to remove from a replica set.
+     * @see <a href="https://docs.mongodb.com/manual/reference/method/rs.remove/">mongodb remove from a replica set</a>
+     */
+    public void removeNodeFromReplSet(final MongoNode mongoNodeToRemove) {
+        verifyWorkingNodeStoreIsNotEmpty();
+
+        removeNodeFromReplSet(
+            buildMongoSocketAddress(mongoNodeToRemove),
+            findMasterElected(workingNodeStore.values().iterator().next())
+        );
+    }
+
+    @NotNull
+    private Container.ExecResult removeNodeFromReplSet(
+        final MongoSocketAddress mongoSocketAddressToRemove,
+        final GenericContainer masterNode
+    ) {
+        val execResultRemoveNode = execMongoDbCommandInContainer(
+            masterNode,
+            String.format(
+                "rs.remove(\"%s:%d\")",
+                mongoSocketAddressToRemove.getIp(),
+                mongoSocketAddressToRemove.getMappedPort()
+            )
+        );
+        log.debug(
+            "Remove a node: {} from a replica set, stdout {}",
+            mongoSocketAddressToRemove,
+            execResultRemoveNode.getStdout()
+        );
+        checkMongoNodeExitCode(
+            execResultRemoveNode,
+            "Removing a node"
+        );
+        return execResultRemoveNode;
+    }
+
+    private void restartGenericContainer(GenericContainer genericContainer) {
+        genericContainer.stop();
+        genericContainer.start();
+    }
+
+    private MongoSocketAddress buildMongoSocketAddress(final MongoNode mongoNode) {
+        return MongoSocketAddress.builder()
+            .ip(mongoNode.getIp())
+            .mappedPort(mongoNode.getPort())
+            .build();
+    }
+
+    /**
+     * Waits for a reelection in a replica set completes
+     * based on the appearance of a master node not equal to a
+     * provided previousMasterMongoNode.
+     *
+     * @param previousMasterMongoNode a node that is not supposed to become
+     *                                a new master elected.
+     */
+    public void waitForMasterReelection(
+        final MongoNode previousMasterMongoNode
+    ) {
+        verifyWorkingNodeStoreIsNotEmpty();
+
+        val prevMasterName = String.format(
+            "%s:%s",
+            previousMasterMongoNode.getIp(),
+            previousMasterMongoNode.getPort()
+        );
+        val reelectionMessage = String.format(
+            "Waiting for the reelection of %s",
+            prevMasterName
+        );
+        val execResultMasterReelection = waitForMongoMasterNodeInit(
+            workingNodeStore.values().iterator().next(),
+            String.format(
+                "rs.status().members.find(o => o.state == 1 && o.name!='%s')===undefined",
+                prevMasterName
+            ),
+            getAwaitNodeInitAttempts(),
+            reelectionMessage
+        );
+        checkMongoNodeExitCode(execResultMasterReelection, reelectionMessage);
+    }
+
+    private void verifyWorkingNodeStoreIsNotEmpty() {
+        if (workingNodeStore.isEmpty()) {
+            throw new IllegalStateException("There is no any working Mongo DB node.");
+        }
+    }
+
+    /**
+     * Fetches a master node in a list of provided mongo nodes.
+     *
+     * @param mongoNodes a list in which to search for a master node.
+     * @return MongoNode representing a master node in a replica set.
+     */
+    public MongoNode getMasterMongoNode(List<MongoNode> mongoNodes) {
+        return mongoNodes.stream()
+            .filter(x -> x.getState() == ReplicaSetMemberState.PRIMARY)
+            .findAny()
+            .orElseThrow(
+                () -> new IllegalStateException("Cannot find a master node in a cluster")
+            );
     }
 }

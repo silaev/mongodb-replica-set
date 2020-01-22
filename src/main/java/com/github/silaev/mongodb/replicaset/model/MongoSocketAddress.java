@@ -1,17 +1,19 @@
 package com.github.silaev.mongodb.replicaset.model;
 
+import lombok.Builder;
 import lombok.EqualsAndHashCode;
-import lombok.Value;
+import lombok.Getter;
 
 /**
  * Immutable class representing a socket address for a mongo node.
  *
  * @author Konstantin Silaev
  */
-@Value(staticConstructor = "of")
-@EqualsAndHashCode(of = {"ip", "replSetPort", "mappedPort"})
+@EqualsAndHashCode(of = {"ip", "mappedPort"})
+@Builder
+@Getter
 public final class MongoSocketAddress {
     private final String ip;
-    private final int replSetPort;
-    private final int mappedPort;
+    private final Integer replSetPort;
+    private final Integer mappedPort;
 }

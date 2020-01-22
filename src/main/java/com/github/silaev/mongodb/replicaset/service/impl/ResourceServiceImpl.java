@@ -5,7 +5,7 @@ import com.github.silaev.mongodb.replicaset.service.ResourceService;
 import java.io.InputStream;
 
 /**
- * Get resource as a stream making it possible to mock such a call.
+ * Gets resource as a stream making it possible to mock such a call.
  *
  * @author Konstantin Silaev
  */

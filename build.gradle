@@ -3,7 +3,7 @@ import io.franzbecker.gradle.lombok.task.DelombokTask
 buildscript {
     ext {
         junitVersion = '5.5.1'
-        testcontainersVersion = '1.12.2'
+        testcontainersVersion = '1.12.4'
     }
 }
 
