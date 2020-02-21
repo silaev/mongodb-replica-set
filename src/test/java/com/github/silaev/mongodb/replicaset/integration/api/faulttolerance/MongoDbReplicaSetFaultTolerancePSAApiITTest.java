@@ -2,19 +2,14 @@ package com.github.silaev.mongodb.replicaset.integration.api.faulttolerance;
 
 import com.github.silaev.mongodb.replicaset.MongoDbReplicaSet;
 import com.github.silaev.mongodb.replicaset.core.IntegrationTest;
-import com.github.silaev.mongodb.replicaset.model.MongoNode;
 import com.github.silaev.mongodb.replicaset.model.ReplicaSetMemberState;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
-
-import java.util.List;
-import java.util.stream.Collectors;
 
 import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.CoreMatchers.hasItems;
@@ -52,13 +47,13 @@ class MongoDbReplicaSetFaultTolerancePSAApiITTest {
     void shouldTestFailoverBecauseOfContainerKill() {
         //GIVEN
         val mongoNodes = mongoReplicaSet.getMongoRsStatus().getMembers();
-        val nodeStatesBeforeFailover = getNodeStates(mongoNodes);
+        val nodeStatesBeforeFailover = mongoReplicaSet.nodeStates(mongoNodes);
         val currentMasterNode = mongoReplicaSet.getMasterMongoNode(mongoNodes);
 
         //WHEN: KILL NODE
         mongoReplicaSet.killNode(currentMasterNode);
         val actualNodeStatesRightAfterKilling =
-            getNodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
+            mongoReplicaSet.nodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
 
         //THEN
         //1. before failover state
@@ -92,9 +87,9 @@ class MongoDbReplicaSetFaultTolerancePSAApiITTest {
 
         //WHEN: WAIT FOR REELECTION
         mongoReplicaSet.waitForMasterReelection(currentMasterNode);
-        mongoReplicaSet.removeNodeFromReplSet(currentMasterNode);
+        mongoReplicaSet.removeNodeFromReplSetConfig(currentMasterNode);
         val actualNodeStatesAfterElection =
-            getNodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
+            mongoReplicaSet.nodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
 
         //THEN: AFTER ELECTION COMPLETES
         assertThat(
@@ -111,13 +106,13 @@ class MongoDbReplicaSetFaultTolerancePSAApiITTest {
     void shouldTestFailoverBecauseOfContainerStop() {
         //GIVEN
         val mongoNodes = mongoReplicaSet.getMongoRsStatus().getMembers();
-        val nodeStatesBeforeFailover = getNodeStates(mongoNodes);
+        val nodeStatesBeforeFailover = mongoReplicaSet.nodeStates(mongoNodes);
         val currentMasterNode = mongoReplicaSet.getMasterMongoNode(mongoNodes);
 
         //WHEN: STOP NODE
         mongoReplicaSet.stopNode(currentMasterNode);
         val actualNodeStatesRightAfterStopping =
-            getNodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
+            mongoReplicaSet.nodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
 
         //THEN
         //1. Before failover state
@@ -152,9 +147,9 @@ class MongoDbReplicaSetFaultTolerancePSAApiITTest {
 
         //WHEN: WAIT FOR REELECTION
         mongoReplicaSet.waitForMasterReelection(currentMasterNode);
-        mongoReplicaSet.removeNodeFromReplSet(currentMasterNode);
+        mongoReplicaSet.removeNodeFromReplSetConfig(currentMasterNode);
         val actualNodeStatesAfterElection =
-            getNodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
+            mongoReplicaSet.nodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
 
         //THEN: AFTER ELECTION COMPLETES
         assertThat(
@@ -171,13 +166,13 @@ class MongoDbReplicaSetFaultTolerancePSAApiITTest {
     void shouldTestFailoverBecauseOfContainerNetworkDisconnect() {
         //GIVEN
         val mongoNodes = mongoReplicaSet.getMongoRsStatus().getMembers();
-        val nodeStatesBeforeFailover = getNodeStates(mongoNodes);
+        val nodeStatesBeforeFailover = mongoReplicaSet.nodeStates(mongoNodes);
         val currentMasterNode = mongoReplicaSet.getMasterMongoNode(mongoNodes);
 
         //WHEN: STOP NETWORK DISCONNECT
         mongoReplicaSet.disconnectNodeFromNetwork(currentMasterNode);
         val actualNodeStatesRightAfterDisconnection =
-            getNodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
+            mongoReplicaSet.nodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
 
         //THEN
         //1. Before failover state
@@ -214,7 +209,7 @@ class MongoDbReplicaSetFaultTolerancePSAApiITTest {
         mongoReplicaSet.waitForMasterReelection(currentMasterNode);
 
         val actualNodeStatesAfterElection =
-            getNodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
+            mongoReplicaSet.nodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
 
         //THEN: AFTER ELECTION COMPLETES
         assertThat(
@@ -231,7 +226,7 @@ class MongoDbReplicaSetFaultTolerancePSAApiITTest {
         mongoReplicaSet.connectNodeToNetwork(currentMasterNode);
         mongoReplicaSet.waitForAllMongoNodesUp();
         val actualNodeStatesAfterConnectingBack =
-            getNodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
+            mongoReplicaSet.nodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
 
         //THEN
         assertThat(
@@ -243,12 +238,5 @@ class MongoDbReplicaSetFaultTolerancePSAApiITTest {
             )
         );
         assertEquals(REPLICA_SET_NUMBER + 1, actualNodeStatesAfterConnectingBack.size());
-    }
-
-    @NotNull
-    private List<ReplicaSetMemberState> getNodeStates(List<MongoNode> mongoNodes) {
-        return mongoNodes.stream()
-            .map(MongoNode::getState)
-            .collect(Collectors.toList());
     }
 }

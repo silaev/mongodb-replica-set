@@ -186,6 +186,8 @@ mongoReplicaSetProperties:
   enabled: false
   mongoDockerImageName: mongo:4.1.13
 ```
+#### Parallel test execution
+`./gradlew clean integrationTest -Djunit.jupiter.execution.parallel.enabled=true`
 
 #### License
 [The MIT License (MIT)](https://github.com/silaev/mongodb-replica-set/blob/master/LICENSE/)

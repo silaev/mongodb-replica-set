@@ -4,6 +4,7 @@ import com.github.silaev.mongodb.replicaset.converter.impl.StringToMongoRsStatus
 import com.github.silaev.mongodb.replicaset.converter.impl.VersionConverter;
 import com.github.silaev.mongodb.replicaset.exception.IncorrectUserInputException;
 import com.github.silaev.mongodb.replicaset.exception.MongoNodeInitializationException;
+import com.github.silaev.mongodb.replicaset.model.MongoNode;
 import com.github.silaev.mongodb.replicaset.model.MongoRsStatus;
 import lombok.val;
 import org.junit.jupiter.api.BeforeEach;
@@ -101,7 +102,7 @@ class MongoDbReplicaSetTest {
         val execResult = mock(Container.ExecResult.class);
         when(execResult.getExitCode())
             .thenReturn(CONTAINER_EXIT_CODE_ERROR);
-        when(execResult.getStderr()).thenReturn("stderr");
+        when(execResult.getStdout()).thenReturn("stdout");
 
         //WHEN
         Executable executable =
@@ -126,5 +127,37 @@ class MongoDbReplicaSetTest {
 
         //THEN
         assertThrows(IncorrectUserInputException.class, executable);
+    }
+
+    @Test
+    void shouldTestFaultToleranceTestSupportAvailability() {
+        //GIVEN
+        doReturn(1).when(replicaSet).getReplicaSetNumber();
+        val mongoNode = mock(MongoNode.class);
+
+        //WHEN
+        Executable executableWaitForAllMongoNodesUp =
+            () -> replicaSet.waitForAllMongoNodesUp();
+        Executable executableWaitForMasterReelection =
+            () -> replicaSet.waitForMasterReelection(mongoNode);
+        Executable executableStopNode =
+            () -> replicaSet.stopNode(mongoNode);
+        Executable executableKillNode =
+            () -> replicaSet.killNode(mongoNode);
+        Executable executableDisconnectNodeFromNetwork =
+            () -> replicaSet.disconnectNodeFromNetwork(mongoNode);
+        Executable executableConnectNodeToNetworkWithReconfiguration =
+            () -> replicaSet.connectNodeToNetworkWithReconfiguration(mongoNode);
+        Executable executableConnectNodeToNetwork =
+            () -> replicaSet.connectNodeToNetwork(mongoNode);
+
+        //THEN
+        assertThrows(IllegalStateException.class, executableWaitForAllMongoNodesUp);
+        assertThrows(IllegalStateException.class, executableStopNode);
+        assertThrows(IllegalStateException.class, executableKillNode);
+        assertThrows(IllegalStateException.class, executableWaitForMasterReelection);
+        assertThrows(IllegalStateException.class, executableConnectNodeToNetwork);
+        assertThrows(IllegalStateException.class, executableDisconnectNodeFromNetwork);
+        assertThrows(IllegalStateException.class, executableConnectNodeToNetworkWithReconfiguration);
     }
 }
