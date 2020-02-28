@@ -532,13 +532,14 @@ public class MongoDbReplicaSet implements Startable {
     ) {
         val execResultMasterAddress = execMongoDbCommandInContainer(
             mongoContainer,
-            RS_STATUS_MEMBERS_DEFINED_CONDITION +
-                "rs.status().members.find(o => o.state == 1).name"
+            "rs.status().members.find(o => o.state == 1).name"
         );
         checkMongoNodeExitCode(execResultMasterAddress, "finding a master node");
+        final String stdout = execResultMasterAddress.getStdout();
         final MongoSocketAddress mongoSocketAddress =
-            Optional.ofNullable(statusConverter.formatToJsonString(execResultMasterAddress.getStdout()))
+            Optional.ofNullable(statusConverter.formatToJsonString(stdout))
                 .map(StringUtils::getArrayByDelimiter)
+                .filter(a -> a.length == 2)
                 .map(a -> {
                         val port = Integer.parseInt(a[1]);
                         return MongoSocketAddress.builder()
@@ -548,7 +549,13 @@ public class MongoDbReplicaSet implements Startable {
                             .build();
                     }
                 ).orElseThrow(
-                () -> new IllegalArgumentException("Cannot find an address in a MongoDb reply")
+                () -> new IllegalArgumentException(
+                    String.format(
+                        "Cannot find an address in a MongoDb reply:%s %s",
+                        System.lineSeparator(),
+                        stdout
+                    )
+                )
             );
         log.debug("Found the master elected: {}", mongoSocketAddress);
 
