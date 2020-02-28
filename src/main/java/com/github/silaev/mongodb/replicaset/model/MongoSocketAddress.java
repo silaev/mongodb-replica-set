@@ -10,7 +10,7 @@ import lombok.ToString;
  *
  * @author Konstantin Silaev
  */
-@EqualsAndHashCode(of = {"ip", "mappedPort" })
+@EqualsAndHashCode(of = {"ip", "mappedPort"})
 @Builder
 @Getter
 @ToString

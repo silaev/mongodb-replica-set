@@ -13,8 +13,7 @@
     from 2 to 7 (including)  | only if adding <b>127.0.0.1 dockerhost</b> to the OS host file | + | + | + |
 
 Tip:
-A single node replica set is the fastest one among others. To use only it, consider the [Testcontainers MongoDb module on GitHub](https://github.com/testcontainers/testcontainers-java/tree/master/modules/mongodb)   
-    
+A single node replica set is the fastest one among others. To use only it, consider the [Testcontainers MongoDb module on GitHub], which is currently under review, [PR](https://github.com/testcontainers/testcontainers-java/pull/1961)    
 #### Getting it
 - Gradle:
 ```groovy
@@ -177,7 +176,8 @@ replicaSetNumber | The number of voting nodes in a replica set including a maste
 awaitNodeInitAttempts | The number of approximate seconds to wait for a master or an arbiter node(if addArbiter=true) | 29 starting from 0 | MongoReplicaSet.builder() | 
 propertyFileName | yml file located on the classpath | none | MongoReplicaSet.builder() |
 mongoDockerImageName | a MongoDB docker file name | mongo:4.0.10 | finds first set:<br/>1) MongoReplicaSet.builder()<br/> 2) the system property mongoReplicaSetProperties.mongoDockerImageName<br/> 3) propertyFile<br/> 4) default value | 
-addArbiter | whether or not add an arbiter node to a cluster | false | MongoReplicaSet.builder() |
+addArbiter | whether or not to add an arbiter node to a cluster | false | MongoReplicaSet.builder() |
+addToxiproxy (since 0.3.0) | whether or not to add a addToxiproxy container for specific fault tolerance tests | false | MongoReplicaSet.builder() |
 enabled | whether or not MongoReplicaSet is enabled even if instantiated in a test | true | finds first set:<br/>1) the system property mongoReplicaSetProperties.enabled<br/>2) propertyFile<br/>3) default value |
 
 a propertyFile.yml example: 
@@ -197,4 +197,4 @@ mongoReplicaSetProperties:
 * [Support different networks](https://jira.mongodb.org/browse/SERVER-1889)
 
 #### Copyright
-Copyright (c) 2019 Konstantin Silaev <silaev256@gmail.com>
+Copyright (c) 2020 Konstantin Silaev <silaev256@gmail.com>

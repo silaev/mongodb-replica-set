@@ -2,8 +2,8 @@ import io.franzbecker.gradle.lombok.task.DelombokTask
 
 buildscript {
     ext {
-        junitVersion = '5.5.1'
-        testcontainersVersion = '1.12.4'
+        junitVersion = '5.6.0'
+        testcontainersVersion = '1.12.5'
     }
 }
 
@@ -12,7 +12,7 @@ plugins {
     id "io.franzbecker.gradle-lombok" version "3.1.0"
     id 'java-library'
     id 'idea'
-    id "com.github.johnrengelman.shadow" version "5.1.0"
+    id "com.github.johnrengelman.shadow" version "5.2.0"
     id 'jacoco'
     id 'maven-publish'
     id "com.jfrog.bintray" version "1.8.4"
@@ -21,7 +21,7 @@ plugins {
 apply from: "$rootDir/gradle/jacoco.gradle"
 
 group = 'com.github.silaev'
-version = '0.2.0'
+version = '0.3.0'
 
 repositories {
     mavenCentral()
@@ -37,16 +37,20 @@ configurations {
 }
 
 dependencies {
-    propogated("org.testcontainers:testcontainers:${testcontainersVersion}")
+    propogated(platform("org.testcontainers:testcontainers-bom:${testcontainersVersion}"))
+    propogated('org.testcontainers:toxiproxy')
+
     implementation("org.yaml:snakeyaml:1.25")
+
+    testImplementation(platform("org.junit:junit-bom:${junitVersion}"))
+    testCompile("org.junit.jupiter:junit-jupiter-params")
+    testRuntime("org.junit.jupiter:junit-jupiter-engine")
 
     testCompile('org.mockito:mockito-core:3.0.0')
     testCompile('ch.qos.logback:logback-classic:1.2.3')
-    testCompile("org.junit.jupiter:junit-jupiter-params:${junitVersion}")
-    testRuntime("org.junit.jupiter:junit-jupiter-engine:${junitVersion}")
-    testCompile("org.mongodb:mongodb-driver-reactivestreams:1.12.0")
-    testCompile("org.mongodb:mongodb-driver-sync:3.11.0")
-    testCompile("org.mockito:mockito-junit-jupiter:3.0.0")
+    testCompile("org.mongodb:mongodb-driver-reactivestreams:1.13.0")
+    testCompile("org.mongodb:mongodb-driver-sync:3.12.1")
+    testCompile("org.mockito:mockito-junit-jupiter:3.3.0")
 }
 
 wrapper {
@@ -207,12 +211,26 @@ publishing {
             }
 
             pom.withXml {
+                def dependencyManagementDependencies =
+                    asNode().appendNode('dependencyManagement').appendNode('dependencies')
+
                 project.configurations.propogated.allDependencies.each {
-                    def dependencyNode = asNode().get("dependencies")[0].appendNode("dependency")
-                    dependencyNode.appendNode('groupId', it.group)
-                    dependencyNode.appendNode('artifactId', it.name)
-                    dependencyNode.appendNode('version', it.version)
-                    dependencyNode.appendNode("scope", "compile")
+                    if (Category.REGULAR_PLATFORM == getCategory(it)) {
+                        def dependencyNode = dependencyManagementDependencies.appendNode("dependency")
+                        dependencyNode.appendNode('groupId', it.group)
+                        dependencyNode.appendNode('artifactId', it.name)
+                        dependencyNode.appendNode('version', it.version)
+                        dependencyNode.appendNode("scope", "import")
+                        dependencyNode.appendNode("type", "pom")
+                    } else {
+                        def dependencyNode = asNode().get("dependencies")[0].appendNode("dependency")
+                        dependencyNode.appendNode('groupId', it.group)
+                        dependencyNode.appendNode('artifactId', it.name)
+                        if (!Objects.isNull(it.version)){
+                            dependencyNode.appendNode('version', it.version)
+                        }
+                        dependencyNode.appendNode("scope", "compile")
+                    }
                 }
             }
 
@@ -223,6 +241,10 @@ publishing {
             mavenLocal()
         }
     }
+}
+
+private static String getCategory(Dependency dependency) {
+    dependency.properties.get("attributes")?.value?.value?.toString()
 }
 
 
