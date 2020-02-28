@@ -969,6 +969,7 @@ public class MongoDbReplicaSet implements Startable {
 
         restartGenericContainer(disconnectedNode);
         reconfigureReplSet();
+
         waitForMaster();
         val masterNode = findMasterElected(workingNodeStore.values().iterator().next());
 
@@ -1037,6 +1038,7 @@ public class MongoDbReplicaSet implements Startable {
 
             restartGenericContainer(disconnectedNode);
 
+            waitForMaster();
             val masterNode = findMasterElected(workingNodeStore.values().iterator().next());
 
             removeNodeFromReplSetConfig(disconnectedMongoSocketAddress, masterNode);
