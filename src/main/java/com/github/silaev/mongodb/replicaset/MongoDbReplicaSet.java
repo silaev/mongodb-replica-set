@@ -30,10 +30,10 @@ import org.testcontainers.lifecycle.Startable;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -191,10 +191,10 @@ public class MongoDbReplicaSet implements Startable {
     /*
      * GenericContainer, not Startable, because there is a need to execute commands after starting
      */
-    private final ConcurrentMap<MongoSocketAddress, GenericContainer> workingNodeStore;
-    private final ConcurrentMap<MongoSocketAddress, ToxiproxyContainer.ContainerProxy> toxyNodeStore;
-    private final ConcurrentMap<String, Pair<GenericContainer, MongoSocketAddress>> supplementaryNodeStore;
-    private final ConcurrentMap<MongoSocketAddress, Pair<Boolean, GenericContainer>> disconnectedNodeStore;
+    private final Map<MongoSocketAddress, GenericContainer> workingNodeStore;
+    private final Map<MongoSocketAddress, ToxiproxyContainer.ContainerProxy> toxyNodeStore;
+    private final Map<String, Pair<GenericContainer, MongoSocketAddress>> supplementaryNodeStore;
+    private final Map<MongoSocketAddress, Pair<Boolean, GenericContainer>> disconnectedNodeStore;
     private final Network network;
 
     @Builder
@@ -228,8 +228,21 @@ public class MongoDbReplicaSet implements Startable {
         this.network = Network.newNetwork();
     }
 
+    /**
+     * Constructor for unit tests.
+     *
+     * @param statusConverter
+     * @param workingNodeStore
+     * @param supplementaryNodeStore
+     * @param disconnectedNodeStore
+     * @param toxyNodeStore
+     */
     MongoDbReplicaSet(
-        final StringToMongoRsStatusConverter statusConverter
+        final StringToMongoRsStatusConverter statusConverter,
+        Map<MongoSocketAddress, GenericContainer> workingNodeStore,
+        Map<String, Pair<GenericContainer, MongoSocketAddress>> supplementaryNodeStore,
+        Map<MongoSocketAddress, Pair<Boolean, GenericContainer>> disconnectedNodeStore,
+        Map<MongoSocketAddress, ToxiproxyContainer.ContainerProxy> toxyNodeStore
     ) {
         val propertyConverter =
             new UserInputToApplicationPropertiesConverter();
@@ -239,10 +252,10 @@ public class MongoDbReplicaSet implements Startable {
         );
         this.statusConverter = statusConverter;
         this.socketAddressConverter = new MongoNodeToMongoSocketAddressConverter();
-        this.workingNodeStore = new ConcurrentHashMap<>();
-        this.supplementaryNodeStore = new ConcurrentHashMap<>();
-        this.disconnectedNodeStore = new ConcurrentHashMap<>();
-        this.toxyNodeStore = new ConcurrentHashMap<>();
+        this.workingNodeStore = workingNodeStore;
+        this.supplementaryNodeStore = supplementaryNodeStore;
+        this.disconnectedNodeStore = disconnectedNodeStore;
+        this.toxyNodeStore = toxyNodeStore;
         this.network = Network.newNetwork();
     }
 
@@ -564,7 +577,7 @@ public class MongoDbReplicaSet implements Startable {
 
     private <T> T extractGenericContainer(
         final MongoSocketAddress mongoSocketAddress,
-        final ConcurrentMap<MongoSocketAddress, T> nodeStore
+        final Map<MongoSocketAddress, T> nodeStore
     ) {
         return Optional.ofNullable(nodeStore.get(mongoSocketAddress))
             .orElseThrow(() -> new IllegalStateException(
@@ -857,7 +870,7 @@ public class MongoDbReplicaSet implements Startable {
 
     /**
      * Stops a Mongo node (a Docker container).
-     * Does not allow to start or connect node back.
+     * Does not allow to start or connect a node back.
      *
      * @param mongoNode a node to stop.
      * @see <a href="https://docs.docker.com/engine/reference/commandline/stop/">docker stop</a>

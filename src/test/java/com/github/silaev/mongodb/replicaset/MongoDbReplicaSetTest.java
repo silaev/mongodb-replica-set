@@ -18,6 +18,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 
+import java.util.HashMap;
+
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -37,7 +39,14 @@ class MongoDbReplicaSetTest {
 
     @BeforeEach
     void setUp() {
-        replicaSet = spy(new MongoDbReplicaSet(converter));
+        replicaSet = spy(
+            new MongoDbReplicaSet(
+                converter,
+                new HashMap<>(),
+                new HashMap<>(),
+                new HashMap<>(),
+                new HashMap<>()
+            ));
     }
 
     @Test

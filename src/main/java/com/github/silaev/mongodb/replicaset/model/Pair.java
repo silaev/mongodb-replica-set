@@ -4,7 +4,7 @@ import lombok.Value;
 
 /**
  * An immutable class containing 2 values.
- * Used in order to avoid a log AbstractMap.SimpleImmutableEntry or 3rd party libraries.
+ * Used in order to avoid a verbose AbstractMap.SimpleImmutableEntry or 3rd party libraries.
  *
  * @author Konstantin Silaev on 1/29/2020
  */
