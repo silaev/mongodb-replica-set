@@ -15,5 +15,6 @@ public final class UserInputProperties {
     private final Integer awaitNodeInitAttempts;
     private final String mongoDockerImageName;
     private final Boolean addArbiter;
+    private final Boolean addToxiproxy;
     private final String propertyFileName;
 }

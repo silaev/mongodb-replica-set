@@ -9,10 +9,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
-/**
- * To use ExecutionMode.CONCURRENT in action,
- * run ./gradlew clean integrationTest -Djunit.jupiter.execution.parallel.enabled=true
- */
 @Execution(ExecutionMode.CONCURRENT)
 @IntegrationTest
 @Slf4j

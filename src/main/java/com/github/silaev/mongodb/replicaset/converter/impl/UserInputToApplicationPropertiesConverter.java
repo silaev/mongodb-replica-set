@@ -112,6 +112,7 @@ public class UserInputToApplicationPropertiesConverter
         );
         val addArbiter = Optional.ofNullable(inputProperties.getAddArbiter())
             .orElse(UserInputToApplicationPropertiesConverter.ADD_ARBITER_DEFAULT);
+        val addToxiproxy = Optional.ofNullable(inputProperties.getAddToxiproxy()).orElse(false);
 
         return ApplicationProperties.builder()
             .replicaSetNumber(replicaSetNumber)
@@ -119,6 +120,7 @@ public class UserInputToApplicationPropertiesConverter
             .awaitNodeInitAttempts(awaitNodeInitAttempts)
             .mongoDockerImageName(mongoDockerImageName)
             .isEnabled(isEnabled)
+            .addToxiproxy(addToxiproxy)
             .build();
     }
 

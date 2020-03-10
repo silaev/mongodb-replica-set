@@ -16,4 +16,5 @@ public class ApplicationProperties {
     private final String mongoDockerImageName;
     private final boolean isEnabled;
     private final boolean addArbiter;
+    private final boolean addToxiproxy;
 }
