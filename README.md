@@ -18,7 +18,7 @@ A single node replica set is the fastest one among others. To use only it, consi
 - Gradle:
 ```groovy
 dependencies {
-    testCompile("com.github.silaev:mongodb-replica-set:0.2.0")
+    testCompile("com.github.silaev:mongodb-replica-set:${LATEST_RELEASE}")
 }
  ```
 - Maven:
@@ -27,11 +27,12 @@ dependencies {
     <dependency>
         <groupId>com.github.silaev</groupId>
         <artifactId>mongodb-replica-set</artifactId>
-        <version>0.2.0</version>
+        <version>${LATEST_RELEASE}</version>
         <scope>test</scope>
     </dependency>
 </dependencies>
 ```
+Replace ${LATEST_RELEASE} with [the Latest Version Number](https://search.maven.org/search?q=g:com.github.silaev%20AND%20a:mongodb-replica-set) 
     
 #### MongoDB versions that MongoReplicaSet is constantly tested against
 version | transaction support |
@@ -55,6 +56,7 @@ class ITTest {
             //.replicaSetNumber(3)
             //.mongoDockerImageName("mongo:4.2.0")
             //.addArbiter(true)
+            //.addToxiproxy(true)
             //.awaitNodeInitAttempts(30)
             .build();
 
@@ -102,6 +104,7 @@ class ITTest {
             //.replicaSetNumber(3)
             //.mongoDockerImageName("mongo:4.2.0")
             //.addArbiter(true)
+            //.addToxiproxy(true)
             //.awaitNodeInitAttempts(30)
             .build();
 

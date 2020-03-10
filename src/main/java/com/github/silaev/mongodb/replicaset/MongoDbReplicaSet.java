@@ -88,6 +88,7 @@ import java.util.stream.Stream;
  *             //.replicaSetNumber(3)
  *             //.mongoDockerImageName("mongo:4.2.0")
  *             //.addArbiter(true)
+ *             //.addToxiproxy(true)
  *             //.awaitNodeInitAttempts(30)
  *             .build();
  *
@@ -131,6 +132,7 @@ import java.util.stream.Stream;
  *             //.replicaSetNumber(3)
  *             //.mongoDockerImageName("mongo:4.2.0")
  *             //.addArbiter(true)
+ *             //.addToxiproxy(true)
  *             //.awaitNodeInitAttempts(30)
  *             .build();
  *
