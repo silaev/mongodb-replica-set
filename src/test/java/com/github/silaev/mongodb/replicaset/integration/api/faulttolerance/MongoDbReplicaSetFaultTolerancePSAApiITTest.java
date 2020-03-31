@@ -14,7 +14,6 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.CoreMatchers.hasItems;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -65,11 +64,9 @@ class MongoDbReplicaSetFaultTolerancePSAApiITTest {
             default:
                 throw new IllegalArgumentException(String.format("Cannot find action: %s", action));
         }
-        val actualNodeStatesRightAfterFailure =
-            mongoReplicaSet.nodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
 
         //THEN
-        //1. Check the state of the members before the failure.
+        //Check the state of the members before the failure.
         assertThat(
             nodeStatesBeforeFailure,
             hasItems(
@@ -79,26 +76,6 @@ class MongoDbReplicaSetFaultTolerancePSAApiITTest {
             )
         );
         assertEquals(REPLICA_SET_NUMBER + 1, nodeStatesBeforeFailure.size());
-
-        //2. Check the state of the members right after the failure.
-        assertThat(
-            actualNodeStatesRightAfterFailure,
-            anyOf(
-                //a repl set has not been aware of the failure yet.
-                hasItems(
-                    ReplicaSetMemberState.PRIMARY,
-                    ReplicaSetMemberState.SECONDARY,
-                    ReplicaSetMemberState.ARBITER
-                ),
-                //a repl set has been aware of the failure.
-                hasItems(
-                    ReplicaSetMemberState.DOWN,
-                    ReplicaSetMemberState.SECONDARY,
-                    ReplicaSetMemberState.ARBITER
-                )
-            )
-        );
-        assertEquals(REPLICA_SET_NUMBER + 1, actualNodeStatesRightAfterFailure.size());
 
         //===STAGE 2: Surviving a failure.
         //WHEN: Wait for reelection.
@@ -128,11 +105,9 @@ class MongoDbReplicaSetFaultTolerancePSAApiITTest {
 
         //WHEN: Disconnect a master node from its network.
         mongoReplicaSet.disconnectNodeFromNetwork(currentMasterNode);
-        val actualNodeStatesRightAfterDisconnection =
-            mongoReplicaSet.nodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
 
         //THEN
-        //1. Check the state of members before the failure.
+        //Check the state of members before the failure.
         assertThat(
             nodeStatesBeforeFailure,
             hasItems(
@@ -142,26 +117,6 @@ class MongoDbReplicaSetFaultTolerancePSAApiITTest {
             )
         );
         assertEquals(REPLICA_SET_NUMBER + 1, nodeStatesBeforeFailure.size());
-
-        //2. Check the state of the members right after the failure.
-        assertThat(
-            actualNodeStatesRightAfterDisconnection,
-            anyOf(
-                //a repl set has not been aware of the failure yet.
-                hasItems(
-                    ReplicaSetMemberState.PRIMARY,
-                    ReplicaSetMemberState.SECONDARY,
-                    ReplicaSetMemberState.ARBITER
-                ),
-                //a repl set has been aware of the failure.
-                hasItems(
-                    ReplicaSetMemberState.DOWN,
-                    ReplicaSetMemberState.SECONDARY,
-                    ReplicaSetMemberState.ARBITER
-                )
-            )
-        );
-        assertEquals(REPLICA_SET_NUMBER + 1, actualNodeStatesRightAfterDisconnection.size());
 
         //===STAGE 2: Surviving a failure.
         //WHEN: Wait for reelection.

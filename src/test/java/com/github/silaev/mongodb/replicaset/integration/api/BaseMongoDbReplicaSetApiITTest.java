@@ -8,13 +8,11 @@ import com.github.silaev.mongodb.replicaset.util.CollectionUtils;
 import com.github.silaev.mongodb.replicaset.util.StringUtils;
 import com.github.silaev.mongodb.replicaset.util.SubscriberHelperUtils;
 import com.mongodb.reactivestreams.client.MongoClients;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.bson.Document;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
-import org.reactivestreams.Publisher;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -43,7 +41,7 @@ abstract class BaseMongoDbReplicaSetApiITTest {
 
         // WHEN + THEN
         try {
-            val subscriber = getSubscriber(
+            val subscriber = SubscriberHelperUtils.getSubscriber(
                 db.runCommand(new Document("replSetGetStatus", 1))
             );
             val document = getDocument(subscriber.getReceived());
@@ -101,7 +99,7 @@ abstract class BaseMongoDbReplicaSetApiITTest {
 
         // WHEN + THEN
         try {
-            val subscriber = getSubscriber(
+            val subscriber = SubscriberHelperUtils.getSubscriber(
                 db.runCommand(new Document("buildInfo", 1))
             );
             val version = getDocument(subscriber.getReceived()).getString("version");
@@ -118,16 +116,6 @@ abstract class BaseMongoDbReplicaSetApiITTest {
         } finally {
             mongoClient.close();
         }
-    }
-
-    @SneakyThrows
-    private SubscriberHelperUtils.PrintDocumentSubscriber getSubscriber(
-        final Publisher<Document> command
-    ) {
-        val subscriber = new SubscriberHelperUtils.PrintDocumentSubscriber();
-        command.subscribe(subscriber);
-        subscriber.await();
-        return subscriber;
     }
 
     void shouldTestEnabled(final MongoDbReplicaSet replicaSet) {

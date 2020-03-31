@@ -16,5 +16,6 @@ public final class UserInputProperties {
     private final String mongoDockerImageName;
     private final Boolean addArbiter;
     private final Boolean addToxiproxy;
+    private final Integer slaveDelayTimeout;
     private final String propertyFileName;
 }

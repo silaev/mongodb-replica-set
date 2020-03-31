@@ -29,7 +29,7 @@ class MongoDbReplicaSetTransactionMultiNodeITTest extends
     }
 
     @AfterAll
-    static void tearDownAllAll() {
+    static void tearDownAll() {
         MONGO_REPLICA_SET.stop();
     }
 

@@ -1,4 +1,4 @@
-# Java8 MongoDbReplicaSet to construct a full-featured MongoDB cluster for integration testing, reproducing production issues, learning distributed systems by the example of MongoDB   
+# Java8 MongoDBReplicaSet to construct a full-featured MongoDB cluster for integration testing, reproducing production issues, learning distributed systems by the example of MongoDB   
 [![Build Status](https://travis-ci.org/silaev/mongodb-replica-set.svg?branch=master)](https://travis-ci.org/silaev/mongodb-replica-set)
 [![codecov](https://codecov.io/gh/silaev/mongodb-replica-set/branch/master/graph/badge.svg)](https://codecov.io/gh/silaev/mongodb-replica-set)
 
@@ -13,7 +13,9 @@
     from 2 to 7 (including)  | only if adding <b>127.0.0.1 dockerhost</b> to the OS host file | + | + | + |
 
 Tip:
-A single node replica set is the fastest one among others. To use only it, consider the [Testcontainers MongoDb module on GitHub], which is currently under review, [PR](https://github.com/testcontainers/testcontainers-java/pull/1961)    
+A single node replica set is the fastest one among others.That's the default mode for MongoDbReplicaSet.
+However, to use only it, consider the [Testcontainers MongoDB module on GitHub](https://www.testcontainers.org/modules/databases/mongodb/)
+    
 #### Getting it
 - Gradle:
 ```groovy
@@ -143,10 +145,10 @@ See a full Spring Boot + Spring Data example [wms on github](https://github.com/
 - Testing MongoDB transactions to run against an environment close to a production one;
 - Testing production issues by recreating a real MongoDB replica set (currently without shards);
 - Education to newcomers to the MongoDB world (learning the behaviour of a distributed NoSQL database while 
-stepping down a node, analyze the election process and so on).
+dealing with network partitioning, analyze the election process and so on).
    
 #### General info
-MongoDB starting form version 4 supports multi-document transactions only on a replica set.
+MongoDB starting from version 4 supports multi-document transactions only on a replica set.
 For example, to initialize a 3 replica set on fixed ports via Docker, one has to do the following:
 1. Add `127.0.0.1 mongo1 mongo2 mongo3` to the host file of an operation system;
 2. Run in terminal:
@@ -170,17 +172,18 @@ For example, to initialize a 3 replica set on fixed ports via Docker, one has to
     - `docker exec -it mongo1  /bin/sh -c "mongo --port 50001 < /scripts/init.js"`
 
 As we can see, there is a lot of operations to execute and we even didn't touch a non-fixed port approach.
-That's where the MongoReplicaSet might come in handy. 
+That's where the MongoDbReplicaSet might come in handy. 
 
 #### Supported features 
 Feature | Description | default value | how to set | 
 ---------- | ----------- | ----------- | ----------- |
-replicaSetNumber | The number of voting nodes in a replica set including a master node | 1 | MongoReplicaSet.builder() |
-awaitNodeInitAttempts | The number of approximate seconds to wait for a master or an arbiter node(if addArbiter=true) | 29 starting from 0 | MongoReplicaSet.builder() | 
-propertyFileName | yml file located on the classpath | none | MongoReplicaSet.builder() |
-mongoDockerImageName | a MongoDB docker file name | mongo:4.0.10 | finds first set:<br/>1) MongoReplicaSet.builder()<br/> 2) the system property mongoReplicaSetProperties.mongoDockerImageName<br/> 3) propertyFile<br/> 4) default value | 
-addArbiter | whether or not to add an arbiter node to a cluster | false | MongoReplicaSet.builder() |
-addToxiproxy (since 0.3.0) | whether or not to add a addToxiproxy container for specific fault tolerance tests | false | MongoReplicaSet.builder() |
+replicaSetNumber | The number of voting nodes in a replica set including a master node | 1 | MongoDbReplicaSet.builder() |
+awaitNodeInitAttempts | The number of approximate seconds to wait for a master or an arbiter node(if addArbiter=true) | 29 starting from 0 | MongoDBReplicaSet.builder() | 
+propertyFileName | yml file located on the classpath | none | MongoDbReplicaSet.builder() |
+mongoDockerImageName | a MongoDB docker file name | mongo:4.0.10 | finds first set:<br/>1) MongoDbReplicaSet.builder()<br/> 2) the system property mongoReplicaSetProperties.mongoDockerImageName<br/> 3) propertyFile<br/> 4) default value | 
+addArbiter | whether or not to add an arbiter node to a cluster | false | MongoDbReplicaSet.builder() |
+slaveDelayTimeout | whether or not to make one master and the others as delayed members  | false | MongoDbReplicaSet.builder() |
+addToxiproxy | whether or not to add a addToxiproxy container for specific fault tolerance tests | false | MongoDbReplicaSet.builder() |
 enabled | whether or not MongoReplicaSet is enabled even if instantiated in a test | true | finds first set:<br/>1) the system property mongoReplicaSetProperties.enabled<br/>2) propertyFile<br/>3) default value |
 
 a propertyFile.yml example: 
@@ -189,8 +192,6 @@ mongoReplicaSetProperties:
   enabled: false
   mongoDockerImageName: mongo:4.1.13
 ```
-#### Parallel test execution
-`./gradlew clean integrationTest -Djunit.jupiter.execution.parallel.enabled=true`
 
 #### License
 [The MIT License (MIT)](https://github.com/silaev/mongodb-replica-set/blob/master/LICENSE/)

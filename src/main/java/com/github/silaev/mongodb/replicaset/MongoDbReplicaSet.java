@@ -3,6 +3,7 @@ package com.github.silaev.mongodb.replicaset;
 import com.github.silaev.mongodb.replicaset.converter.impl.MongoNodeToMongoSocketAddressConverter;
 import com.github.silaev.mongodb.replicaset.converter.impl.StringToMongoRsStatusConverter;
 import com.github.silaev.mongodb.replicaset.converter.impl.UserInputToApplicationPropertiesConverter;
+import com.github.silaev.mongodb.replicaset.core.Generated;
 import com.github.silaev.mongodb.replicaset.exception.IncorrectUserInputException;
 import com.github.silaev.mongodb.replicaset.exception.MongoNodeInitializationException;
 import com.github.silaev.mongodb.replicaset.model.ApplicationProperties;
@@ -14,6 +15,7 @@ import com.github.silaev.mongodb.replicaset.model.Pair;
 import com.github.silaev.mongodb.replicaset.model.ReplicaSetMemberState;
 import com.github.silaev.mongodb.replicaset.model.UserInputProperties;
 import com.github.silaev.mongodb.replicaset.util.StringUtils;
+import eu.rekawek.toxiproxy.model.ToxicDirection;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.SneakyThrows;
@@ -29,11 +31,14 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startable;
 
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -90,6 +95,7 @@ import java.util.stream.Stream;
  *             //.addArbiter(true)
  *             //.addToxiproxy(true)
  *             //.awaitNodeInitAttempts(30)
+ *             //slaveDelayTimeout(20)
  *             .build();
  *
  *     {@literal @}BeforeAll
@@ -134,6 +140,7 @@ import java.util.stream.Stream;
  *             //.addArbiter(true)
  *             //.addToxiproxy(true)
  *             //.awaitNodeInitAttempts(30)
+ *             //slaveDelayTimeout(20)
  *             .build();
  *
  *     {@literal @}BeforeAll
@@ -168,8 +175,10 @@ import java.util.stream.Stream;
  * @author Konstantin Silaev
  */
 @Slf4j
-public class MongoDbReplicaSet implements Startable {
+public class MongoDbReplicaSet implements Startable, AutoCloseable {
     public static final int MAX_VOTING_MEMBERS = 7;
+    public static final Comparator<MongoSocketAddress> COMPARATOR_MAPPED_PORT = Comparator.comparing(MongoSocketAddress::getMappedPort);
+    private static final String DEAD_LETTER_DB_NAME = "dead_letter";
     static final String STATUS_COMMAND = "rs.status()";
     private static final int CONTAINER_EXIT_CODE_OK = 0;
     private static final String CLASS_NAME = MongoDbReplicaSet.class.getCanonicalName();
@@ -179,21 +188,21 @@ public class MongoDbReplicaSet implements Startable {
     private static final boolean USE_HOST_WORKAROUND = true;
     private static final int MONGO_DB_INTERNAL_PORT = 27017;
     private static final String MONGO_ARBITER_NODE_NAME = "mongo-arbiter";
-    private static final String DOCKER_HOST_CONTAINER_NAME = "qoomon/docker-host:2.3.0";
+    private static final String DOCKER_HOST_CONTAINER_NAME = "qoomon/docker-host:2.4.0";
     private static final String TOXIPROXY_CONTAINER_NAME = "toxiproxy";
     private static final MongoDbVersion FIRST_SUPPORTED_MONGODB_VERSION =
         MongoDbVersion.of(3, 6, 14);
     private static final boolean MOVE_FORWARD = true;
     private static final boolean STOP_PIPELINE = false;
     private static final String READ_PREFERENCE_PRIMARY = "primary";
-    private static final String RS_STATUS_MEMBERS_DEFINED_CONDITION = "rs.status().members != undefined && ";
+    private static final String RS_STATUS_MEMBERS_DEFINED_CONDITION = "rs.status().ok == 1 && rs.status().members != undefined && ";
     private final StringToMongoRsStatusConverter statusConverter;
     private final MongoNodeToMongoSocketAddressConverter socketAddressConverter;
     private final ApplicationProperties properties;
     /*
      * GenericContainer, not Startable, because there is a need to execute commands after starting
      */
-    private final Map<MongoSocketAddress, GenericContainer> workingNodeStore;
+    private final NavigableMap<MongoSocketAddress, GenericContainer> workingNodeStore;
     private final Map<MongoSocketAddress, ToxiproxyContainer.ContainerProxy> toxyNodeStore;
     private final Map<String, Pair<GenericContainer, MongoSocketAddress>> supplementaryNodeStore;
     private final Map<MongoSocketAddress, Pair<Boolean, GenericContainer>> disconnectedNodeStore;
@@ -206,7 +215,8 @@ public class MongoDbReplicaSet implements Startable {
         final String propertyFileName,
         final String mongoDockerImageName,
         final Boolean addArbiter,
-        final Boolean addToxiproxy
+        final Boolean addToxiproxy,
+        final Integer slaveDelayTimeout
     ) {
         val propertyConverter =
             new UserInputToApplicationPropertiesConverter();
@@ -219,11 +229,12 @@ public class MongoDbReplicaSet implements Startable {
                 .mongoDockerImageName(mongoDockerImageName)
                 .addArbiter(addArbiter)
                 .addToxiproxy(addToxiproxy)
+                .slaveDelayTimeout(slaveDelayTimeout)
                 .build()
         );
         this.statusConverter = new StringToMongoRsStatusConverter();
         this.socketAddressConverter = new MongoNodeToMongoSocketAddressConverter();
-        this.workingNodeStore = new ConcurrentHashMap<>();
+        this.workingNodeStore = new ConcurrentSkipListMap<>(COMPARATOR_MAPPED_PORT);
         this.supplementaryNodeStore = new ConcurrentHashMap<>();
         this.disconnectedNodeStore = new ConcurrentHashMap<>();
         this.toxyNodeStore = new ConcurrentHashMap<>();
@@ -238,13 +249,15 @@ public class MongoDbReplicaSet implements Startable {
      * @param supplementaryNodeStore
      * @param disconnectedNodeStore
      * @param toxyNodeStore
+     * @param network
      */
     MongoDbReplicaSet(
         final StringToMongoRsStatusConverter statusConverter,
-        Map<MongoSocketAddress, GenericContainer> workingNodeStore,
+        NavigableMap<MongoSocketAddress, GenericContainer> workingNodeStore,
         Map<String, Pair<GenericContainer, MongoSocketAddress>> supplementaryNodeStore,
         Map<MongoSocketAddress, Pair<Boolean, GenericContainer>> disconnectedNodeStore,
-        Map<MongoSocketAddress, ToxiproxyContainer.ContainerProxy> toxyNodeStore
+        Map<MongoSocketAddress, ToxiproxyContainer.ContainerProxy> toxyNodeStore,
+        Network network
     ) {
         val propertyConverter =
             new UserInputToApplicationPropertiesConverter();
@@ -258,7 +271,12 @@ public class MongoDbReplicaSet implements Startable {
         this.supplementaryNodeStore = supplementaryNodeStore;
         this.disconnectedNodeStore = disconnectedNodeStore;
         this.toxyNodeStore = toxyNodeStore;
-        this.network = Network.newNetwork();
+        this.network = network;
+    }
+
+    @Override
+    public void close() {
+        stop();
     }
 
     public String getReplicaSetUrl() {
@@ -324,8 +342,12 @@ public class MongoDbReplicaSet implements Startable {
         return properties.isAddToxiproxy();
     }
 
+    public int getSlaveDelayTimeout() {
+        return properties.getSlaveDelayTimeout();
+    }
+
     /**
-     * Switch to host.docker.internal once https://github.com/docker/for-linux/issues/264 is resolved.
+     * Consider switching to host.docker.internal once https://github.com/docker/for-linux/issues/264 is resolved.
      */
     private String getDockerHostName() {
         return USE_HOST_WORKAROUND ? DOCKER_HOST_WORKAROUND : DOCKER_HOST_INTERNAL;
@@ -343,17 +365,25 @@ public class MongoDbReplicaSet implements Startable {
             log.info("{} is disabled", CLASS_NAME);
             return;
         }
+
+        val dockerHostName = getDockerHostName();
+        if (LOCALHOST.equals(getHostIpAddress()) && getReplicaSetNumber() > 1) {
+            warnAboutTheNeedToModifyHostFile();
+            supplementaryNodeStore.put(
+                DOCKER_HOST_WORKAROUND,
+                Pair.of(getAndRunDockerHostContainer(network, dockerHostName), null)
+            );
+        }
+
         ToxiproxyContainer toxiproxyContainer = null;
         if (getAddToxiproxy()) {
             toxiproxyContainer = getAndStartToxiproxyContainer();
             supplementaryNodeStore.put(TOXIPROXY_CONTAINER_NAME, Pair.of(toxiproxyContainer, null));
         }
-        val dockerHostName = getDockerHostName();
         val replicaSetNumber = properties.getReplicaSetNumber();
 
-        GenericContainer mongoContainer = null;
-        for (int i = replicaSetNumber - 1; i >= 0; i--) {
-            mongoContainer = getAndStartMongoDbContainer(network);
+        for (int i = 0; i < replicaSetNumber; i++) {
+            GenericContainer mongoContainer = getAndStartMongoDbContainer(network);
 
             val pair = getContainerProxyAndPort(mongoContainer, toxiproxyContainer);
 
@@ -368,23 +398,16 @@ public class MongoDbReplicaSet implements Startable {
             }
         }
 
+        final GenericContainer mongoContainer = workingNodeStore.firstEntry().getValue();
         if (Objects.isNull(mongoContainer)) {
             throw new IllegalStateException("MongoDb container is not supposed to be null");
         }
 
-        if (LOCALHOST.equals(getHostIpAddress()) && getReplicaSetNumber() > 1) {
-            warnAboutTheNeedToModifyHostFile();
-            supplementaryNodeStore.put(
-                DOCKER_HOST_WORKAROUND,
-                Pair.of(getAndRunDockerHostContainer(network, dockerHostName), null)
-            );
-        }
-
-        val awaitNodeInitAttempts = properties.getAwaitNodeInitAttempts();
+        val awaitNodeInitAttempts = getAwaitNodeInitAttempts();
 
         val masterNode = initMasterNode(mongoContainer, awaitNodeInitAttempts);
 
-        if (properties.isAddArbiter()) {
+        if (getAddArbiter()) {
             addArbiterNode(network, toxiproxyContainer, masterNode, awaitNodeInitAttempts);
         }
 
@@ -404,6 +427,11 @@ public class MongoDbReplicaSet implements Startable {
             Objects.requireNonNull(toxiproxyContainer, "toxiproxyContainer is not supposed to be null");
             containerProxy = toxiproxyContainer.getProxy(mongoContainer, MONGO_DB_INTERNAL_PORT);
             port = containerProxy.getProxyPort();
+            log.debug(
+                "Real port: {}, proxy port: {}",
+                mongoContainer.getMappedPort(MONGO_DB_INTERNAL_PORT),
+                port
+            );
         } else {
             Objects.requireNonNull(mongoContainer, "mongoContainer is not supposed to be null");
             port = mongoContainer.getMappedPort(MONGO_DB_INTERNAL_PORT);
@@ -451,13 +479,12 @@ public class MongoDbReplicaSet implements Startable {
             getMongoReplicaSetInitializer()
         );
         val stdoutInitRs = execResultInitRs.getStdout();
-        log.debug(stdoutInitRs);
-        verifyVersion(stdoutInitRs);
-
+        log.debug("initMasterNode => execResultInitRs: {}", stdoutInitRs);
         checkMongoNodeExitCode(
             execResultInitRs,
             "initializing a master node"
         );
+        verifyVersion(stdoutInitRs);
 
         return checkAndGetMasterNode(mongoContainer, awaitNodeInitAttempts);
     }
@@ -547,7 +574,12 @@ public class MongoDbReplicaSet implements Startable {
     ) {
         val execResultMasterAddress = execMongoDbCommandInContainer(
             mongoContainer,
-            "rs.status().members.find(o => o.state == 1).name"
+            "if (rs.status().ok!=1) {" +
+                "throw new Error('Replica set status is not ok, errmsg: ' + " +
+                "rs.status().errmsg + ', codeName: ' + rs.status().codeName);" +
+                "} else {" +
+                "rs.status().members.find(o => o.state == 1).name" +
+                "}"
         );
         checkMongoNodeExitCode(execResultMasterAddress, "finding a master node");
         final String stdout = execResultMasterAddress.getStdout();
@@ -565,11 +597,7 @@ public class MongoDbReplicaSet implements Startable {
                     }
                 ).orElseThrow(
                 () -> new IllegalArgumentException(
-                    String.format(
-                        "Cannot find an address in a MongoDb reply:%s %s",
-                        System.lineSeparator(),
-                        stdout
-                    )
+                    String.format("Cannot find an address in a MongoDb reply:%n %s", stdout)
                 )
             );
         log.debug("Found the master elected: {}", mongoSocketAddress);
@@ -783,13 +811,22 @@ public class MongoDbReplicaSet implements Startable {
     private String getMongoReplicaSetInitializer() {
         val addresses = workingNodeStore.keySet().toArray(new MongoSocketAddress[0]);
         val length = addresses.length;
+        val slaveDelayTimeout = getSlaveDelayTimeout();
         String replicaSetInitializer = IntStream.range(0, length)
             .mapToObj(i -> {
-                    val address = addresses[length - i - 1];
-                    return String.format(
-                        "        {\"_id\": %d, \"host\": \"%s:%d\"}",
-                        i, address.getIp(), address.getReplSetPort()
-                    );
+                    val address = addresses[i];
+                    if (slaveDelayTimeout > 0 && i > 0) {
+                        return String.format(
+                            "        {\"_id\": %d, \"host\": \"%s:%d\", \"slaveDelay\":%d, \"priority\": 0, \"hidden\": true}",
+                            i, address.getIp(), address.getReplSetPort(), slaveDelayTimeout
+                        );
+                    } else {
+                        return String.format(
+                            "        {\"_id\": %d, \"host\": \"%s:%d\"}",
+                            i, address.getIp(), address.getReplSetPort()
+                        );
+                    }
+
                 }
             ).collect(Collectors.joining(
                 ",\n",
@@ -799,7 +836,7 @@ public class MongoDbReplicaSet implements Startable {
                 "\n    ]\n});"
                 )
             );
-        log.debug(replicaSetInitializer);
+        log.debug("replicaSetInitializer: {}", replicaSetInitializer);
         return replicaSetInitializer;
     }
 
@@ -813,7 +850,7 @@ public class MongoDbReplicaSet implements Startable {
                 Collectors.joining(
                     ",",
                     "mongodb://",
-                    String.format("/test%s&readPreference=%s",
+                    String.format("/%s&readPreference=%s",
                         getReplicaSetNumber() == 1 ? "" : "?replicaSet=docker-rs",
                         readPreference
                     )
@@ -864,7 +901,7 @@ public class MongoDbReplicaSet implements Startable {
     }
 
     private @NonNull ToxiproxyContainer getAndStartToxiproxyContainer() {
-        ToxiproxyContainer toxiproxy = new ToxiproxyContainer()
+        final ToxiproxyContainer toxiproxy = new ToxiproxyContainer()
             .withNetwork(network);
         toxiproxy.start();
         return toxiproxy;
@@ -954,6 +991,51 @@ public class MongoDbReplicaSet implements Startable {
     }
 
     /**
+     * Adds latency to the downstream of a node
+     *
+     * @param mongoNode a node to disconnect
+     * @param latency   in milliseconds
+     * @see <a href="https://github.com/Shopify/toxiproxy#latency">toxiproxy latency</a>
+     */
+    @Generated
+    void addLatencyToDownstream(
+        final MongoNode mongoNode,
+        long latency
+    ) {
+        validateFaultToleranceTestSupportAvailability();
+
+        val mongoSocketAddress = socketAddressConverter.convert(mongoNode);
+        try {
+            extractGenericContainer(mongoSocketAddress, toxyNodeStore)
+                .toxics()
+                .latency(
+                    String.format("ADD_LATENCY_DOWNSTREAM_%d", mongoSocketAddress.getMappedPort()),
+                    ToxicDirection.DOWNSTREAM,
+                    latency
+                ).setLatency(latency);
+        } catch (IOException e) {
+            throw new RuntimeException("Could not control proxy", e);
+        }
+    }
+
+    @Generated
+    void removeLatencyFromDownstream(
+        final MongoNode mongoNode
+    ) {
+        validateFaultToleranceTestSupportAvailability();
+
+        val mongoSocketAddress = socketAddressConverter.convert(mongoNode);
+        try {
+            extractGenericContainer(mongoSocketAddress, toxyNodeStore)
+                .toxics()
+                .get(String.format("ADD_LATENCY_DOWNSTREAM_%d", mongoSocketAddress.getMappedPort()))
+                .remove();
+        } catch (IOException e) {
+            throw new RuntimeException("Could not control proxy", e);
+        }
+    }
+
+    /**
      * Connects a Mongo node (a Docker container) back to its network
      * with forcing a cluster reconfiguration (for instance, in case
      * there is no master in a cluster after some network disconnection).
@@ -983,7 +1065,7 @@ public class MongoDbReplicaSet implements Startable {
             .exec();
 
         restartGenericContainer(disconnectedNode);
-        reconfigureReplSet();
+        reconfigureReplSetRemoveDownAndUnknownNodes();
 
         waitForMaster();
         val masterNode = findMasterElected(workingNodeStore.values().iterator().next());
@@ -1081,9 +1163,9 @@ public class MongoDbReplicaSet implements Startable {
         }
     }
 
-    private void reconfigureReplSet() {
+    private void reconfigureReplSetRemoveDownAndUnknownNodes() {
         val members = getMongoRsStatus().getMembers();
-        val replicaSetReConfig = getReplicaSetReConfig(members);
+        val replicaSetReConfig = getReplicaSetReConfigRemoveDownAndUnknownNodes(members);
         log.debug("Reconfiguring a node replica set as per: {}", replicaSetReConfig);
         val execResult = execMongoDbCommandInContainer(
             workingNodeStore.values().iterator().next(),
@@ -1097,7 +1179,43 @@ public class MongoDbReplicaSet implements Startable {
         );
     }
 
-    private String getReplicaSetReConfig(List<MongoNode> members) {
+    /**
+     * Reconfigures a replica set by setting slaveDelay=0, priority=1 and hidden=false
+     * for each node.
+     */
+    public void reconfigureReplSetToDefaults() {
+        verifyWorkingNodeStoreIsNotEmpty();
+
+        val members = getMongoRsStatus().getMembers();
+        val replicaSetReConfig = getReplicaSetReConfigWithoutSlaveDelay(members);
+        log.debug("Reconfiguring a node replica set as per: {}", replicaSetReConfig);
+        val execResult = execMongoDbCommandInContainer(
+            workingNodeStore.values().iterator().next(),
+            replicaSetReConfig
+        );
+        log.debug(execResult.getStdout());
+
+        checkMongoNodeExitCode(
+            execResult,
+            "Reconfiguring a replica set"
+        );
+    }
+
+    private String getReplicaSetReConfigWithoutSlaveDelay(List<MongoNode> members) {
+        return IntStream.range(0, members.size())
+            .mapToObj(
+                i -> String.format(
+                    "cfg.members[%d].slaveDelay=0;cfg.members[%d].priority=1;cfg.members[%d].hidden=false"
+                    , i, i, i
+                )
+            ).collect(Collectors.joining(
+                ";\n",
+                "cfg = rs.conf();\n",
+                ";\nrs.reconfig(cfg, {force : true})")
+            );
+    }
+
+    private String getReplicaSetReConfigRemoveDownAndUnknownNodes(List<MongoNode> members) {
         return IntStream.range(0, members.size())
             .filter(i -> {
                 val memberState = members.get(i).getState();
@@ -1105,7 +1223,7 @@ public class MongoDbReplicaSet implements Startable {
             })
             .mapToObj(i -> String.format("[cfg.members[%d]]", i))
             .collect(Collectors.joining(
-                ";",
+                ";\n",
                 "cfg = rs.conf(); cfg.members = ",
                 ";rs.reconfig(cfg, {force : true})")
             );
@@ -1175,8 +1293,7 @@ public class MongoDbReplicaSet implements Startable {
         );
     }
 
-    @NotNull
-    private Container.ExecResult removeNodeFromReplSetConfig(
+    private void removeNodeFromReplSetConfig(
         final MongoSocketAddress mongoSocketAddressToRemove,
         final GenericContainer masterNode
     ) {
@@ -1197,13 +1314,12 @@ public class MongoDbReplicaSet implements Startable {
             execResultRemoveNode,
             "Removing a node"
         );
-        return execResultRemoveNode;
     }
 
     /**
      * Restarts a container.
      *
-     * @param genericContainer
+     * @param genericContainer to exec stop and then start.
      */
     private void restartGenericContainer(final GenericContainer genericContainer) {
         genericContainer.stop();
@@ -1240,7 +1356,7 @@ public class MongoDbReplicaSet implements Startable {
                     "rs.status().members.find(o => o.state == 1 && o.name!='%s') === undefined",
                 prevMasterName
             ),
-            getAwaitNodeInitAttempts(),
+            getAwaitNodeInitAttempts() * 2,
             reelectionMessage
         );
         checkMongoNodeExitCode(execResultMasterReelection, reelectionMessage);
@@ -1249,8 +1365,7 @@ public class MongoDbReplicaSet implements Startable {
     /**
      * Waits for a master node to be present in a cluster.
      */
-    private void waitForMaster() {
-        validateFaultToleranceTestSupportAvailability();
+    public void waitForMaster() {
         verifyWorkingNodeStoreIsNotEmpty();
 
         val message = "Waiting for a master node to be present in a cluster";
@@ -1265,7 +1380,7 @@ public class MongoDbReplicaSet implements Startable {
     }
 
     /**
-     * Waits until a replica set has STARTUP, STARTUP2 nodes.
+     * Waits until a replica set has only PRIMARY, ARBITER or SECONDARY nodes.
      */
     public void waitForAllMongoNodesUp() {
         validateFaultToleranceTestSupportAvailability();
@@ -1275,7 +1390,9 @@ public class MongoDbReplicaSet implements Startable {
         val execResultWaitForNodesUp = waitForCondition(
             workingNodeStore.values().iterator().next(),
             RS_STATUS_MEMBERS_DEFINED_CONDITION +
-                "rs.status().members.find(o => o.state == 0 || o.state == 5 || o.state == 6) != undefined",
+                "rs.status().members.find(" +
+                "o => o.state == 0 || o.state == 3 || o.state == 5 || o.state == 6 || o.state == 8 || o.state == 9" +
+                ") != undefined",
             getAwaitNodeInitAttempts(),
             waitingMessage
         );
@@ -1283,27 +1400,9 @@ public class MongoDbReplicaSet implements Startable {
     }
 
     /**
-     * Waits until a replica set has STARTUP, STARTUP2 and no DOWN nodes.
-     */
-    public void waitForAllMongoNodesUpWithoutAnyDown() {
-        validateFaultToleranceTestSupportAvailability();
-        verifyWorkingNodeStoreIsNotEmpty();
-
-        val waitingMessage = "Waiting for all nodes are up and running without any in a down state";
-        val execResultWaitForNodesUp = waitForCondition(
-            workingNodeStore.values().iterator().next(),
-            RS_STATUS_MEMBERS_DEFINED_CONDITION +
-                "rs.status().members.find(o => o.state == 0 || o.state == 5 || o.state == 6 || o.state == 8) != undefined",
-            getAwaitNodeInitAttempts(),
-            waitingMessage
-        );
-        checkMongoNodeExitCode(execResultWaitForNodesUp, waitingMessage);
-    }
-
-    /**
-     * Waits until a replica set has nodeNumber DOWN nodes.
+     * Waits until a replica set has the nodeNumber of the nodes in the DOWN state.
      *
-     * @param nodeNumber a number of nodes to wait for.
+     * @param nodeNumber a number of nodes in the DOWN state to wait for.
      */
     public void waitForMongoNodesDown(int nodeNumber) {
         validateFaultToleranceTestSupportAvailability();
@@ -1408,5 +1507,69 @@ public class MongoDbReplicaSet implements Startable {
         return mongoNodes.stream()
             .map(MongoNode::getState)
             .collect(Collectors.toList());
+    }
+
+    /**
+     * Loads rollback files generated on a former master to a DEAD_LETTER_DB_NAME.
+     *
+     * @param mongoNode          a former master node.
+     * @param collectionFullName db.collectionName, for example test.foo.
+     * @return
+     */
+    @SneakyThrows(value = {IOException.class, InterruptedException.class})
+    @Generated
+    boolean loadCollectionToDeadLetterDb(
+        final MongoNode mongoNode,
+        final String collectionFullName
+    ) {
+        validateFaultToleranceTestSupportAvailability();
+        verifyWorkingNodeStoreIsNotEmpty();
+
+        val path = "/data/db/rollback/" + collectionFullName;
+        val mongoSocketAddress = socketAddressConverter.convert(mongoNode);
+        final GenericContainer genericContainer = extractGenericContainer(mongoSocketAddress, workingNodeStore);
+        val waitForRollbackFile = genericContainer.execInContainer(
+            "sh", "-c",
+            String.format(
+                "COUNTER=1; " +
+                    "while [ $COUNTER != %d ] && [ ! -d %s ]; " +
+                    "do sleep 1; " +
+                    "COUNTER=$((COUNTER+1)); " +
+                    "echo waiting for a rollback directory: $COUNTER up to %d; " +
+                    "done",
+                getAwaitNodeInitAttempts(),
+                path,
+                getAwaitNodeInitAttempts()
+            )
+        );
+        log.debug(
+            "waitForRollbackFile: stdout: {}, stderr: {}",
+            waitForRollbackFile.getStdout(),
+            waitForRollbackFile.getStderr()
+        );
+        final boolean waitFiled = waitForRollbackFile.getStdout().contains(
+            String.format("%d up to", getAwaitNodeInitAttempts() - 1)
+        );
+        if (waitForRollbackFile.getExitCode() != CONTAINER_EXIT_CODE_OK || waitFiled) {
+            log.debug("Cannot find any rollback file");
+            return false;
+        } else {
+            val execResultMongorestore = genericContainer.execInContainer(
+                "mongorestore",
+                "--uri=" + getReplicaSetUrl(),
+                "--db", DEAD_LETTER_DB_NAME,
+                path
+            );
+            log.debug(
+                "mongorestore: stdout: {}, stderr: {}",
+                execResultMongorestore.getStdout(),
+                execResultMongorestore.getStderr()
+            );
+            if (execResultMongorestore.getExitCode() != CONTAINER_EXIT_CODE_OK) {
+                throw new IllegalStateException("Cannot execute mongorestore to extract rollback files");
+            }
+        }
+
+        return true;
     }
 }

@@ -17,9 +17,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.Network;
 
 import java.util.HashMap;
+import java.util.TreeMap;
 
+import static com.github.silaev.mongodb.replicaset.MongoDbReplicaSet.COMPARATOR_MAPPED_PORT;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -42,10 +45,11 @@ class MongoDbReplicaSetTest {
         replicaSet = spy(
             new MongoDbReplicaSet(
                 converter,
+                new TreeMap<>(COMPARATOR_MAPPED_PORT),
                 new HashMap<>(),
                 new HashMap<>(),
                 new HashMap<>(),
-                new HashMap<>()
+                mock(Network.class)
             ));
     }
 
