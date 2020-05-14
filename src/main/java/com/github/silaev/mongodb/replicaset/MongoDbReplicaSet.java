@@ -272,12 +272,11 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             return;
         }
 
-        val dockerHostName = getDockerHostName();
-        if (LOCALHOST.equals(getHostIpAddress()) && getReplicaSetNumber() > 1) {
+        if (USE_HOST_WORKAROUND && LOCALHOST.equals(getHostIpAddress()) && getReplicaSetNumber() > 1) {
             warnAboutTheNeedToModifyHostFile();
             supplementaryNodeStore.put(
                 DOCKER_HOST_WORKAROUND,
-                Pair.of(getAndRunDockerHostContainer(network, dockerHostName), null)
+                Pair.of(getAndRunDockerHostContainer(network, getDockerHostName()), null)
             );
         }
 
