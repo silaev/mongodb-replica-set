@@ -99,8 +99,8 @@ task integrationTest(type: Test) { Test task ->
         forkEvery = 1
     }
 
-    task.minHeapSize('256m')
-    task.maxHeapSize('2048m')
+    task.minHeapSize('512m')
+    task.maxHeapSize('3072m')
 
     check.dependsOn integrationTest
     integrationTest.mustRunAfter test

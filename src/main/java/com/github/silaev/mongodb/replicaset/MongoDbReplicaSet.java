@@ -76,101 +76,7 @@ import java.util.stream.Stream;
  * </tbody>
  * </table>
  * </blockquote>
- * <p>Complete documentation is found at <a href="https://github.com/silaev/mongodb-replica-set">mongodb-replica-set on github</a>
- *
- * <h3>Example usage</h3>
- * <p>The example of a JUnit5 test class:
- * <pre style="code">
- * import com.github.silaev.mongodb.replicaset.MongoDbReplicaSet;
- * import org.junit.jupiter.api.AfterAll;
- * import org.junit.jupiter.api.BeforeAll;
- * import org.junit.jupiter.api.Test;
- *
- * import static org.junit.jupiter.api.Assertions.assertNotNull;
- *
- * class ITTest {
- *     private static final MongoDbReplicaSet MONGO_REPLICA_SET = MongoDbReplicaSet.builder()
- *             //.replicaSetNumber(3)
- *             //.mongoDockerImageName("mongo:4.2.0")
- *             //.addArbiter(true)
- *             //.addToxiproxy(true)
- *             //.awaitNodeInitAttempts(30)
- *             //slaveDelayTimeout(20)
- *             .build();
- *
- *     {@literal @}BeforeAll
- *     static void setUpAll() {
- *         MONGO_REPLICA_SET.start();
- *     }
- *
- *     {@literal @}AfterAll
- *     static void tearDownAllAll() {
- *         MONGO_REPLICA_SET.stop();
- *     }
- *
- *     {@literal @}Test
- *     void shouldTestReplicaSetUrlAndStatus() {
- *         assertNotNull(MONGO_REPLICA_SET.getReplicaSetUrl());
- *         assertNotNull(MONGO_REPLICA_SET.getMongoRsStatus());
- *     }
- * }
- * </pre>
- *
- * <p>The example of a SpringBoot + SpringData with JUnit5:
- * <pre style="code">
- * import com.github.silaev.mongodb.replicaset.MongoDbReplicaSet;
- * import org.junit.jupiter.api.AfterAll;
- * import org.junit.jupiter.api.BeforeAll;
- * import org.junit.jupiter.api.Test;
- * import org.springframework.boot.test.context.SpringBootTest;
- * import org.springframework.boot.test.util.TestPropertyValues;
- * import org.springframework.context.ApplicationContextInitializer;
- * import org.springframework.context.ConfigurableApplicationContext;
- * import org.springframework.test.context.ContextConfiguration;
- *
- * import static org.junit.jupiter.api.Assertions.assertNotNull;
- *
- * {@literal @}SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
- * //@DataMongoTest
- * {@literal @}ContextConfiguration(initializers = ITTest.Initializer.class)
- * class ITTest {
- *     private static final MongoDbReplicaSet MONGO_REPLICA_SET = MongoDbReplicaSet.builder()
- *             //.replicaSetNumber(3)
- *             //.mongoDockerImageName("mongo:4.2.0")
- *             //.addArbiter(true)
- *             //.addToxiproxy(true)
- *             //.awaitNodeInitAttempts(30)
- *             //slaveDelayTimeout(20)
- *             .build();
- *
- *     {@literal @}BeforeAll
- *     static void setUpAll() {
- *         MONGO_REPLICA_SET.start();
- *     }
- *
- *     {@literal @}AfterAll
- *     static void tearDownAllAll() {
- *         MONGO_REPLICA_SET.stop();
- *     }
- *
- *     {@literal @}Test
- *     void shouldTestReplicaSetUrlAndStatus() {
- *         assertNotNull(MONGO_REPLICA_SET.getReplicaSetUrl());
- *         assertNotNull(MONGO_REPLICA_SET.getMongoRsStatus());
- *     }
- *
- *     static class Initializer implements ApplicationContextInitializer&#60;ConfigurableApplicationContext&#62; {
- *         {@literal @}Override
- *         public void initialize(ConfigurableApplicationContext configurableApplicationContext) {
- *             if (MONGO_REPLICA_SET.isEnabled()) {
- *                 TestPropertyValues.of(
- *                         "spring.data.mongodb.uri: " + MONGO_REPLICA_SET.getReplicaSetUrl()
- *                 ).applyTo(configurableApplicationContext);
- *             }
- *         }
- *     }
- * }
- * </pre>
+ * <p>See examples on <a href="https://github.com/silaev/mongodb-replica-set">mongodb-replica-set on github</a>
  *
  * @author Konstantin Silaev
  */
@@ -178,8 +84,8 @@ import java.util.stream.Stream;
 public class MongoDbReplicaSet implements Startable, AutoCloseable {
     public static final int MAX_VOTING_MEMBERS = 7;
     public static final Comparator<MongoSocketAddress> COMPARATOR_MAPPED_PORT = Comparator.comparing(MongoSocketAddress::getMappedPort);
-    private static final String DEAD_LETTER_DB_NAME = "dead_letter";
     static final String STATUS_COMMAND = "rs.status()";
+    private static final String DEAD_LETTER_DB_NAME = "dead_letter";
     private static final int CONTAINER_EXIT_CODE_OK = 0;
     private static final String CLASS_NAME = MongoDbReplicaSet.class.getCanonicalName();
     private static final String LOCALHOST = "localhost";
@@ -196,6 +102,8 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     private static final boolean STOP_PIPELINE = false;
     private static final String READ_PREFERENCE_PRIMARY = "primary";
     private static final String RS_STATUS_MEMBERS_DEFINED_CONDITION = "rs.status().ok == 1 && rs.status().members != undefined && ";
+    private static final String RS_EXCEPTION = "throw new Error('Replica set status is not ok, errmsg: ' + rs.status().errmsg +" +
+        " ', codeName: ' + rs.status().codeName);";
     private final StringToMongoRsStatusConverter statusConverter;
     private final MongoNodeToMongoSocketAddressConverter socketAddressConverter;
     private final ApplicationProperties properties;
@@ -359,8 +267,6 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
 
     @Override
     public synchronized void start() {
-        log.debug("currentThread: {}", Thread.currentThread().getName());
-
         if (!properties.isEnabled()) {
             log.info("{} is disabled", CLASS_NAME);
             return;
@@ -574,12 +480,10 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     ) {
         val execResultMasterAddress = execMongoDbCommandInContainer(
             mongoContainer,
-            "if (rs.status().ok!=1) {" +
-                "throw new Error('Replica set status is not ok, errmsg: ' + " +
-                "rs.status().errmsg + ', codeName: ' + rs.status().codeName);" +
-                "} else {" +
-                "rs.status().members.find(o => o.state == 1).name" +
-                "}"
+            buildJsIfCommand(
+                "rs.status().ok==1",
+                "rs.status().members.find(o => o.state == 1).name"
+            )
         );
         checkMongoNodeExitCode(execResultMasterAddress, "finding a master node");
         final String stdout = execResultMasterAddress.getStdout();
@@ -603,6 +507,18 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         log.debug("Found the master elected: {}", mongoSocketAddress);
 
         return extractGenericContainer(mongoSocketAddress, workingNodeStore);
+    }
+
+    /**
+     * Generates if-then-else JS clause.
+     *
+     * @param condition  on if statement
+     * @param thenClause on if statement
+     * @return generated if-then-else JS clause
+     */
+    @NotNull
+    private String buildJsIfCommand(final String condition, final String thenClause) {
+        return String.format("if (%s) {%s} else {%s}", condition, thenClause, RS_EXCEPTION);
     }
 
     private <T> T extractGenericContainer(
@@ -837,7 +753,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
                 )
             );
         log.debug("replicaSetInitializer: {}", replicaSetInitializer);
-        return replicaSetInitializer;
+        return "cfg = " + replicaSetInitializer + buildJsIfCommand("cfg.ok==1", "cfg");
     }
 
     private String buildMongoRsUrl(final String readPreference) {
@@ -875,7 +791,10 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             DOCKER_HOST_CONTAINER_NAME
         ).withPrivilegedMode(true)
             .withNetwork(network)
-            .withNetworkAliases(dockerHostName);
+            .withNetworkAliases(dockerHostName)
+            .waitingFor(
+                Wait.forLogMessage(".*Forwarding ports.*", 1)
+            );
         dockerHostContainer.start();
         return dockerHostContainer;
     }

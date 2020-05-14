@@ -1,4 +1,4 @@
-# Java8 MongoDBReplicaSet to construct a full-featured MongoDB cluster for integration testing, reproducing production issues, learning distributed systems by the example of MongoDB   
+# Java8 MongoDbReplicaSet to construct a full-featured MongoDB cluster for integration testing, reproducing production issues, learning distributed systems by the example of MongoDB   
 [![Build Status](https://travis-ci.org/silaev/mongodb-replica-set.svg?branch=master)](https://travis-ci.org/silaev/mongodb-replica-set)
 [![codecov](https://codecov.io/gh/silaev/mongodb-replica-set/branch/master/graph/badge.svg)](https://codecov.io/gh/silaev/mongodb-replica-set)
 
@@ -13,7 +13,7 @@
     from 2 to 7 (including)  | only if adding <b>127.0.0.1 dockerhost</b> to the OS host file | + | + | + |
 
 Tip:
-A single node replica set is the fastest one among others.That's the default mode for MongoDbReplicaSet.
+A single node replica set is the fastest one among others. That's the default mode for MongoDbReplicaSet.
 However, to use only it, consider the [Testcontainers MongoDB module on GitHub](https://www.testcontainers.org/modules/databases/mongodb/)
     
 #### Getting it
@@ -44,101 +44,76 @@ version | transaction support |
 4.2.0 |+|
  
 #### Examples (note that MongoReplicaSet is test framework agnostic)
-The example of a JUnit5 test class:
 ```java
-import com.github.silaev.mongodb.replicaset.MongoDbReplicaSet;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
 class ITTest {
-    private static final MongoDbReplicaSet MONGO_REPLICA_SET = MongoDbReplicaSet.builder()
-            //.replicaSetNumber(3)
-            //.mongoDockerImageName("mongo:4.2.0")
-            //.addArbiter(true)
-            //.addToxiproxy(true)
-            //.awaitNodeInitAttempts(30)
-            .build();
-
-    @BeforeAll
-    static void setUpAll() {
-        MONGO_REPLICA_SET.start();
-    }
-
-    @AfterAll
-    static void tearDownAllAll() {
-        MONGO_REPLICA_SET.stop();
+    @Test
+    void testDefaultSingleNode() {
+        try (
+            //create a single node mongoDbReplicaSet and auto-close it afterwards
+            final MongoDbReplicaSet mongoDbReplicaSet = MongoDbReplicaSet.builder().build()
+        ) {
+            //start it
+            mongoDbReplicaSet.start();
+            assertThat(
+                mongoDbReplicaSet.nodeStates(mongoDbReplicaSet.getMongoRsStatus().getMembers()),
+                hasItem(ReplicaSetMemberState.PRIMARY)
+            );
+        }
     }
 
     @Test
-    void shouldTestReplicaSetUrlAndStatus() {
-        assertNotNull(MONGO_REPLICA_SET.getReplicaSetUrl());
-        assertNotNull(MONGO_REPLICA_SET.getMongoRsStatus());
-    }
-}
-```
-You can also use MongoReplicaSet as a non-static field. For example, to have 
-its own instance of MongoReplicaSet for each test (applicable for JUnit). 
- 
-See more examples in the test sources [mongodb-replica-set on github](https://github.com/silaev/mongodb-replica-set/tree/master/src/test/java/com/github/silaev/mongodb/replicaset/integration)
+    void testFaultTolerance() {
+        try (
+            //create a PSA mongoDbReplicaSet with try-with-resources
+            final MongoDbReplicaSet mongoDbReplicaSet = MongoDbReplicaSet.builder()
+                //with 2 working nodes
+                .replicaSetNumber(2)
+                //with an arbiter node
+                .addArbiter(true)
+                //create a proxy for each node to simulate network partitioning
+                .addToxiproxy(true)
+                .build()
+        ) {
+            //start it
+            mongoDbReplicaSet.start();
 
-The example of a JUnit5 test class in a Spring Boot + Spring Data application:
-```java
-import com.github.silaev.mongodb.replicaset.MongoDbReplicaSet;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.util.TestPropertyValues;
-import org.springframework.context.ApplicationContextInitializer;
-import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.test.context.ContextConfiguration;
+            //get a primary node
+            final MongoNode masterNode = mongoDbReplicaSet.getMasterMongoNode(
+                mongoDbReplicaSet.getMongoRsStatus().getMembers()
+            );
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+            //cut of masterNode from network
+            mongoDbReplicaSet.disconnectNodeFromNetwork(masterNode);
+            //wait until a new master is elected that is different from the masterNode
+            mongoDbReplicaSet.waitForMasterReelection(masterNode);
+            assertThat(
+                mongoDbReplicaSet.nodeStates(mongoDbReplicaSet.getMongoRsStatus().getMembers()),
+                hasItems(
+                    ReplicaSetMemberState.PRIMARY,
+                    ReplicaSetMemberState.ARBITER
+                )
+            );
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-//@DataMongoTest
-@ContextConfiguration(initializers = ITTest.Initializer.class)
-class ITTest {
-    private static final MongoDbReplicaSet MONGO_REPLICA_SET = MongoDbReplicaSet.builder()
-            //.replicaSetNumber(3)
-            //.mongoDockerImageName("mongo:4.2.0")
-            //.addArbiter(true)
-            //.addToxiproxy(true)
-            //.awaitNodeInitAttempts(30)
-            .build();
-
-    @BeforeAll
-    static void setUpAll() {
-        MONGO_REPLICA_SET.start();
-    }
-
-    @AfterAll
-    static void tearDownAllAll() {
-        MONGO_REPLICA_SET.stop();
-    }
-
-    @Test
-    void shouldTestReplicaSetUrlAndStatus() {
-        assertNotNull(MONGO_REPLICA_SET.getReplicaSetUrl());
-        assertNotNull(MONGO_REPLICA_SET.getMongoRsStatus());
-    }
-
-    static class Initializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
-        @Override
-        public void initialize(ConfigurableApplicationContext configurableApplicationContext) {
-            if (MONGO_REPLICA_SET.isEnabled()) {
-                TestPropertyValues.of(
-                        "spring.data.mongodb.uri: " + MONGO_REPLICA_SET.getReplicaSetUrl()
-                ).applyTo(configurableApplicationContext);
-            }
+            //bring back the masterNode
+            mongoDbReplicaSet.connectNodeToNetwork(masterNode);
+            //wait until all nodes are up and running
+            mongoDbReplicaSet.waitForAllMongoNodesUp();
+            assertThat(
+                mongoDbReplicaSet.nodeStates(mongoDbReplicaSet.getMongoRsStatus().getMembers()),
+                hasItems(
+                    ReplicaSetMemberState.PRIMARY,
+                    ReplicaSetMemberState.ARBITER,
+                    ReplicaSetMemberState.SECONDARY
+                )
+            );
         }
     }
 }
-``` 
-See a full Spring Boot + Spring Data example [wms on github](https://github.com/silaev/wms/blob/master/src/test/java/com/silaev/wms/integration/ProductControllerITTest.java/)
+```
+ 
+ 
+- See more examples in the test sources [mongodb-replica-set on github](https://github.com/silaev/mongodb-replica-set/tree/master/src/test/java/com/github/silaev/mongodb/replicaset/integration)
+- See a full Spring Boot + Spring Data example [wms on github](https://github.com/silaev/wms/blob/master/src/test/java/com/silaev/wms/integration/ProductControllerITTest.java/)
 
 #### Motivation
 - Cross-platform solution that doesn't depend on fixed ports;
@@ -182,8 +157,8 @@ awaitNodeInitAttempts | The number of approximate seconds to wait for a master o
 propertyFileName | yml file located on the classpath | none | MongoDbReplicaSet.builder() |
 mongoDockerImageName | a MongoDB docker file name | mongo:4.0.10 | finds first set:<br/>1) MongoDbReplicaSet.builder()<br/> 2) the system property mongoReplicaSetProperties.mongoDockerImageName<br/> 3) propertyFile<br/> 4) default value | 
 addArbiter | whether or not to add an arbiter node to a cluster | false | MongoDbReplicaSet.builder() |
-slaveDelayTimeout | whether or not to make one master and the others as delayed members  | false | MongoDbReplicaSet.builder() |
-addToxiproxy | whether or not to add a addToxiproxy container for specific fault tolerance tests | false | MongoDbReplicaSet.builder() |
+slaveDelayTimeout | whether or not to create one master and the others as delayed members | false | MongoDbReplicaSet.builder() |
+addToxiproxy | whether or not to create a proxy for each MongoDB node via Toxiproxy | false | MongoDbReplicaSet.builder() |
 enabled | whether or not MongoReplicaSet is enabled even if instantiated in a test | true | finds first set:<br/>1) the system property mongoReplicaSetProperties.enabled<br/>2) propertyFile<br/>3) default value |
 
 a propertyFile.yml example: 
