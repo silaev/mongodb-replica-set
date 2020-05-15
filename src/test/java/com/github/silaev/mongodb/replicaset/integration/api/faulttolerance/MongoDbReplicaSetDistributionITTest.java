@@ -97,8 +97,8 @@ class MongoDbReplicaSetDistributionITTest {
 
                 //THEN
                 //1. Primary is the default mode. All operations read from the current replica set primary.
-                //Therefore, reads are not possible (MongoSocketReadException or MongoSocketReadTimeoutException).
-                assertThrows(MongoSocketException.class, executableReadOperation);
+                //Therefore, reads are not possible (MongoSocketReadException/MongoSocketReadTimeoutException/MongoTimeoutException).
+                assertThrows(MongoException.class, executableReadOperation);
 
                 //2. Secondary is not writeable.
                 assertThrows(MongoTimeoutException.class, executableWriteOperation);
