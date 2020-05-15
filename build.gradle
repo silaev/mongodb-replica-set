@@ -3,19 +3,20 @@ import io.franzbecker.gradle.lombok.task.DelombokTask
 buildscript {
     ext {
         junitVersion = '5.6.0'
-        testcontainersVersion = '1.12.5'
+        testcontainersVersion = '1.14.1'
+        mongodbDriverVersion = '4.0.2'
     }
 }
 
 plugins {
     id 'java'
-    id "io.franzbecker.gradle-lombok" version "3.1.0"
+    id "io.franzbecker.gradle-lombok" version "4.0.0"
     id 'java-library'
     id 'idea'
     id "com.github.johnrengelman.shadow" version "5.2.0"
     id 'jacoco'
     id 'maven-publish'
-    id "com.jfrog.bintray" version "1.8.4"
+    id "com.jfrog.bintray" version "1.8.5"
 }
 
 apply from: "$rootDir/gradle/jacoco.gradle"
@@ -28,7 +29,7 @@ repositories {
 }
 
 lombok {
-    version = "1.18.8"
+    version = "1.18.12"
 }
 
 configurations {
@@ -43,18 +44,18 @@ dependencies {
     implementation("org.yaml:snakeyaml:1.25")
 
     testImplementation(platform("org.junit:junit-bom:${junitVersion}"))
-    testCompile("org.junit.jupiter:junit-jupiter-params")
-    testRuntime("org.junit.jupiter:junit-jupiter-engine")
+    testImplementation("org.junit.jupiter:junit-jupiter-params")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
 
-    testCompile('org.mockito:mockito-core:3.0.0')
-    testCompile('ch.qos.logback:logback-classic:1.2.3')
-    testCompile("org.mongodb:mongodb-driver-reactivestreams:1.13.0")
-    testCompile("org.mongodb:mongodb-driver-sync:3.12.1")
-    testCompile("org.mockito:mockito-junit-jupiter:3.3.0")
+    testImplementation('org.mockito:mockito-core:3.0.0')
+    testImplementation('ch.qos.logback:logback-classic:1.2.3')
+    testImplementation("org.mongodb:mongodb-driver-reactivestreams:${mongodbDriverVersion}")
+    testImplementation("org.mongodb:mongodb-driver-sync:${mongodbDriverVersion}")
+    testImplementation("org.mockito:mockito-junit-jupiter:3.3.0")
 }
 
 wrapper {
-    gradleVersion = '5.4.1'
+    gradleVersion = '6.4'
     distributionType = Wrapper.DistributionType.BIN
 }
 
@@ -98,8 +99,8 @@ task integrationTest(type: Test) { Test task ->
         forkEvery = 1
     }
 
-    task.minHeapSize('32m')
-    task.maxHeapSize('256m')
+    task.minHeapSize('512m')
+    task.maxHeapSize('3072m')
 
     check.dependsOn integrationTest
     integrationTest.mustRunAfter test
@@ -226,7 +227,7 @@ publishing {
                         def dependencyNode = asNode().get("dependencies")[0].appendNode("dependency")
                         dependencyNode.appendNode('groupId', it.group)
                         dependencyNode.appendNode('artifactId', it.name)
-                        if (!Objects.isNull(it.version)){
+                        if (!Objects.isNull(it.version)) {
                             dependencyNode.appendNode('version', it.version)
                         }
                         dependencyNode.appendNode("scope", "compile")

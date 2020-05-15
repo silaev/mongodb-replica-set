@@ -6,7 +6,7 @@ private static List<String> getSonarExclusions() {
 }
 
 jacoco {
-    toolVersion = "0.8.4"
+    toolVersion = "0.8.5"
 }
 
 jacocoTestReport {
@@ -21,7 +21,7 @@ jacocoTestReport {
     afterEvaluate {
         classDirectories.from = files(classDirectories.files.collect {
             fileTree(dir: it,
-                    exclude: getSonarExclusions())
+                exclude: getSonarExclusions())
         })
     }
 }
@@ -31,7 +31,8 @@ jacocoTestCoverageVerification {
     violationRules {
         rule {
             limit {
-                minimum = 0.80
+                def minTestCov = System.properties.get("minTestCov")
+                minimum = (minTestCov == null) ? 0.80 : new BigDecimal(minTestCov.toString())
             }
         }
     }
@@ -39,7 +40,7 @@ jacocoTestCoverageVerification {
     afterEvaluate {
         classDirectories.from = files(classDirectories.files.collect {
             fileTree(dir: it,
-                    exclude: getSonarExclusions())
+                exclude: getSonarExclusions())
         })
     }
 }

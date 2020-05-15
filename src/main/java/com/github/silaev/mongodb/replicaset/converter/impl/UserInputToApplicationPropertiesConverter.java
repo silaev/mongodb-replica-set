@@ -113,6 +113,7 @@ public class UserInputToApplicationPropertiesConverter
         val addArbiter = Optional.ofNullable(inputProperties.getAddArbiter())
             .orElse(UserInputToApplicationPropertiesConverter.ADD_ARBITER_DEFAULT);
         val addToxiproxy = Optional.ofNullable(inputProperties.getAddToxiproxy()).orElse(false);
+        val slaveDelayTimeout = Optional.ofNullable(inputProperties.getSlaveDelayTimeout()).orElse(0);
 
         return ApplicationProperties.builder()
             .replicaSetNumber(replicaSetNumber)
@@ -121,6 +122,7 @@ public class UserInputToApplicationPropertiesConverter
             .mongoDockerImageName(mongoDockerImageName)
             .isEnabled(isEnabled)
             .addToxiproxy(addToxiproxy)
+            .slaveDelayTimeout(slaveDelayTimeout)
             .build();
     }
 
@@ -142,6 +144,13 @@ public class UserInputToApplicationPropertiesConverter
             (inputProperties.getAddArbiter() && inputProperties.getReplicaSetNumber() == 1)) {
             throw new IncorrectUserInputException(
                 "Adding an arbiter node is not supported for a single node replica set"
+            );
+        }
+
+        if (Objects.nonNull(inputProperties.getSlaveDelayTimeout()) && (Objects.nonNull(inputProperties.getReplicaSetNumber())) &&
+            inputProperties.getSlaveDelayTimeout() > 0 && inputProperties.getReplicaSetNumber() == 1) {
+            throw new IncorrectUserInputException(
+                "Cannot create a replica set with delayed members having only one member"
             );
         }
     }

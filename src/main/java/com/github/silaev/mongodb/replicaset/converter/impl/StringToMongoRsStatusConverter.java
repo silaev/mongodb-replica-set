@@ -15,6 +15,7 @@ import lombok.val;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -65,6 +66,7 @@ public class StringToMongoRsStatusConverter
         return Optional.ofNullable(mongoRsStatusMutable.getMembers())
             .map(m -> mongoRsStatusMutable.getMembers().stream()
                 .map(this::mongoNodeMapping)
+                .sorted(Comparator.comparing(MongoNode::getPort))
                 .collect(
                     Collectors.collectingAndThen(
                         Collectors.toList(),

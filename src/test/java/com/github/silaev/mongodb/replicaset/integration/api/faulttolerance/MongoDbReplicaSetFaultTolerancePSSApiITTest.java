@@ -9,12 +9,9 @@ import lombok.val;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.Execution;
-import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.CoreMatchers.hasItems;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -22,7 +19,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * A fault tolerance tests for Primary with Two Secondary Members (P-S-S)
  */
-@Execution(ExecutionMode.CONCURRENT)
 @IntegrationTest
 @Slf4j
 class MongoDbReplicaSetFaultTolerancePSSApiITTest {
@@ -64,8 +60,6 @@ class MongoDbReplicaSetFaultTolerancePSSApiITTest {
             default:
                 throw new IllegalArgumentException(String.format("Cannot find action: %s", action));
         }
-        val actualNodeStatesRightAfterStopping =
-            mongoReplicaSet.nodeStates((mongoReplicaSet.getMongoRsStatus().getMembers()));
 
         //THEN
         //1. Check the state of members before a failover.
@@ -78,26 +72,6 @@ class MongoDbReplicaSetFaultTolerancePSSApiITTest {
             )
         );
         assertEquals(REPLICA_SET_NUMBER, nodeStatesBeforeFailover.size());
-
-        //2. Check the state of members right after a failover.
-        assertThat(
-            actualNodeStatesRightAfterStopping,
-            anyOf(
-                //a repl set has not been aware of the failure yet.
-                hasItems(
-                    ReplicaSetMemberState.PRIMARY,
-                    ReplicaSetMemberState.SECONDARY,
-                    ReplicaSetMemberState.SECONDARY
-                ),
-                hasItems(
-                    //a repl set has been aware of the failure.
-                    ReplicaSetMemberState.DOWN,
-                    ReplicaSetMemberState.SECONDARY,
-                    ReplicaSetMemberState.SECONDARY
-                )
-            )
-        );
-        assertEquals(REPLICA_SET_NUMBER, actualNodeStatesRightAfterStopping.size());
 
         //===STAGE 2: Surviving a failure.
         //WHEN: Wait for reelection.
@@ -127,8 +101,6 @@ class MongoDbReplicaSetFaultTolerancePSSApiITTest {
 
         //WHEN: Disconnect a master node from its network.
         mongoReplicaSet.disconnectNodeFromNetwork(currentMasterNode);
-        val actualNodeStatesRightAfterDisconnection =
-            mongoReplicaSet.nodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
 
         //THEN
         //1. Check the state of members before the failure.
@@ -141,26 +113,6 @@ class MongoDbReplicaSetFaultTolerancePSSApiITTest {
             )
         );
         assertEquals(REPLICA_SET_NUMBER, nodeStatesBeforeFailover.size());
-
-        //2. Check the state of the members right after the failure.
-        assertThat(
-            actualNodeStatesRightAfterDisconnection,
-            anyOf(
-                //a repl set has not been aware of the failure yet.
-                hasItems(
-                    ReplicaSetMemberState.PRIMARY,
-                    ReplicaSetMemberState.SECONDARY,
-                    ReplicaSetMemberState.SECONDARY
-                ),
-                //a repl set has been aware of the failure.
-                hasItems(
-                    ReplicaSetMemberState.DOWN,
-                    ReplicaSetMemberState.SECONDARY,
-                    ReplicaSetMemberState.SECONDARY
-                )
-            )
-        );
-        assertEquals(REPLICA_SET_NUMBER, actualNodeStatesRightAfterDisconnection.size());
 
         //===STAGE 2: Surviving a failure.
         //WHEN: Wait for reelection.

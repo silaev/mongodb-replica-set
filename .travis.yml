@@ -15,35 +15,30 @@ addons:
 
 env:
   matrix:
-    - MONGO_VERSION=3.6.14 ADD_PARALLEL_TEST=0 DOCKER_COMPOSE_VERSION=1.23.2 FINALIZE=0
-    - MONGO_VERSION=4.0.10 ADD_PARALLEL_TEST=0 DOCKER_COMPOSE_VERSION=1.23.2 FINALIZE=0
-    - MONGO_VERSION=4.2.0 ADD_PARALLEL_TEST=0 DOCKER_COMPOSE_VERSION=1.23.2 FINALIZE=0
-    # with a current default MONGO_VERSION=4.0.10, run integration tests in parallel
-    - MONGO_VERSION=4.0.10 ADD_PARALLEL_TEST=1 DOCKER_COMPOSE_VERSION=1.23.2 FINALIZE=1
+    - MONGO_VERSION=3.6.14 DOCKER_COMPOSE_VERSION=1.23.2 FINALIZE=0
+    - MONGO_VERSION=4.0.10 DOCKER_COMPOSE_VERSION=1.23.2 FINALIZE=0
+    - MONGO_VERSION=4.2.0 DOCKER_COMPOSE_VERSION=1.23.2 FINALIZE=1
   global:
       - secure: mA4afw9Igd3ybCyAVWl+a0hozOil+Kt317eukLNRxNmJ85hMm9CvmUNJqNAvcg29o4t1NDPDKnU2LVsp+qshrKX863lHuAcR0bo+OcbC0bGFBe7XM2Cu+CcdpldeUN3fdpjdCmh97DszPvGHOjCp1EoaKFN0SMqI8V6TyzG2izY6MociQXDlUKmJtdoWYI61iGDq2bJ1cla75DB+FU5ieBApNlK42LYOvbmm545CPwMOG8G4AYsoGD41SzX++No33KBGoh5vfMqdzAz3o1+Yt1+kQaLWM5AUNFT18OHdHUpVXLNSjYITgMhhBdwr/PN3TMGjOF0lYEh9fmEO6YN0Ix0ZlTUFl0OCn6kSRiQzQeqhBZgsZuk1LKiZUCBmBoeUdfrB9+WwdoyFPU1VCIs8H5wSfmm1r5LJPFP43AXQj8zvE4/4xZ5Fnc4HdXw+cO46jcZfvuc7clcDNIElYVzmhCATmRBL2J/q2duzmsdUMzr0/Pnqh8HJ+xF7GuAgNfwK1RZNPw36hlXzNzuQOhMQqMHZb/VMEweMdKcn9wquciwY9zzR5m57fnC8ktS1wi09O7hpick3PUl0Q5i3ddrulu3r5Mx4CdlWsU/ZxXjoj5Jkfl1Oh9dRarbO/FyjBq9Unoxh41Gfk+nqLYa/t1UChKXhRcfHDVQM6sBKLKwwMrM=
       - secure: dPBxqox6EcjmeqMzwTJ5h01My4jXbxepu9jUR0OFUsCfczXg2sOGwh9V75z3LSZYymCIAZM8bXpbGddbCZAvW9teLruKmG3Z1m6xf2BHkaHKuwl4RCu1BfRycyq+YgzRLe0lKIfxMyTB99KWCnRHUTnf8QpAWrGVu1L1FjFHKY/c5EpvcjfTOaWhD5mqyuc7zFv3Yfqwv73gamQ8saHE8tizd03VxSuyMvaiHIcWNoywID3UJUZSc7i0polVrs5yu1h407FiOhTO1B8HpV459c1hjY8f9ADFMJ7zBPD0GN8GolCwbTCzNtbWfOlp0knsWP9KEACY9VhbTotuYpR3CLaLYKCuqhod+d7p/epU9t5R7eOY3XddJ6JcXj1Fyu5S5OI+ZxYmW8hMdiYb4OIhDP+yMPSVU4rZ0HwH/vps+7AvBmvT4ubKuOF92908Jf9P2ZaOy3vY8CGJVxGhj99fYcfUQZkr+Mb2Qa9xYJca1CCZI44jSjsrNXaImPEn27kdP/avsYYgqtrtS78dEuV7/HaZQOrmXEGRuCGWZ+s6918P1/p8MJhNLFoZ2acqFMyAO4HitmY2UaLtX9VnobOp2BgLVd+HPAWTJU9q+5wgEc5CU0dY3tahE8lHa8yc7GkQKdzyIwpu8hZowl9Ent/r5ZIQKWjzhO3PYs6ls+PNEgo=
 
 before_install:
   - chmod +x gradlew;
-  - chmod +x scripts/after_success.sh;
+  - chmod +x scripts/codecov.sh;
 
 after_success:
-    - ./scripts/after_success.sh
+    - ./scripts/codecov.sh
 
 script:
   - echo "*** build and run sequential integration tests (MongoDB $MONGO_VERSION) against a host";
-    ./gradlew clean build -DmongoReplicaSetProperties.mongoDockerImageName=mongo:${MONGO_VERSION};
+    ./gradlew clean build --no-daemon -DmongoReplicaSetProperties.mongoDockerImageName=mongo:${MONGO_VERSION};
   - echo "*** run integration tests (MongoDB $MONGO_VERSION) in docker-only mode";
     docker-compose -f docker-compose-it-test.yml up -d;
-    docker wait run-it-test-mongodb-replica-set;
+    travis_wait 40 docker wait run-it-test-mongodb-replica-set;
     docker logs run-it-test-mongodb-replica-set;
   - if [[ $(docker inspect run-it-test-mongodb-replica-set --format='{{.State.ExitCode}}') == '1' ]]; then
+    echo $(docker inspect run-it-test-mongodb-replica-set --format='{{json .State}}');
     exit 1;
-    fi
-  - if [ $ADD_PARALLEL_TEST==1 ]; then
-    echo "*** run parallel integration tests (MongoDB $MONGO_VERSION) against a host";
-    ./gradlew integrationTest -DmongoReplicaSetProperties.mongoDockerImageName=mongo:${MONGO_VERSION} -Djunit.jupiter.execution.parallel.enabled=true;
     fi
 
 before_cache:

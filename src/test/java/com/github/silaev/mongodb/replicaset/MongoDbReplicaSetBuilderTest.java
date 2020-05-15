@@ -54,7 +54,6 @@ class MongoDbReplicaSetBuilderTest {
         assertThrows(IncorrectUserInputException.class, executable);
     }
 
-
     @Test
     void shouldGetDefaultAwaitNodeInitAttempts() {
         //GIVEN
@@ -213,5 +212,18 @@ class MongoDbReplicaSetBuilderTest {
 
         //THEN
         assertEquals(enabled, replicaSet.isEnabled());
+    }
+
+    @Test
+    void shouldThrowExceptionBecauseOfSlaveDelayOnSingleNode() {
+        //GIVEN
+        //replicaSetNumber
+
+        //WHEN
+        Executable executable =
+            () -> MongoDbReplicaSet.builder().replicaSetNumber(1).slaveDelayTimeout(60).build();
+
+        //THEN
+        assertThrows(IncorrectUserInputException.class, executable);
     }
 }

@@ -1,8 +1,11 @@
 package com.github.silaev.mongodb.replicaset.util;
 
 import com.mongodb.MongoTimeoutException;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 import org.bson.Document;
+import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
@@ -20,8 +23,17 @@ import static java.lang.String.format;
  */
 @Slf4j
 public final class SubscriberHelperUtils {
-
     private SubscriberHelperUtils() {
+    }
+
+    @SneakyThrows
+    public static SubscriberHelperUtils.PrintDocumentSubscriber getSubscriber(
+        final Publisher<Document> command
+    ) {
+        val subscriber = new SubscriberHelperUtils.PrintDocumentSubscriber();
+        command.subscribe(subscriber);
+        subscriber.await();
+        return subscriber;
     }
 
     /**
@@ -37,8 +49,8 @@ public final class SubscriberHelperUtils {
         private volatile boolean completed;
 
         ObservableSubscriber() {
-            this.received = new ArrayList<T>();
-            this.errors = new ArrayList<Throwable>();
+            this.received = new ArrayList<>();
+            this.errors = new ArrayList<>();
             this.latch = new CountDownLatch(1);
         }
 
@@ -54,6 +66,7 @@ public final class SubscriberHelperUtils {
 
         @Override
         public void onError(final Throwable t) {
+            log.error(t.getMessage());
             errors.add(t);
             onComplete();
         }
