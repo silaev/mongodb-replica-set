@@ -7,7 +7,6 @@ import com.github.silaev.mongodb.replicaset.model.Pair;
 import com.github.silaev.mongodb.replicaset.model.ReplicaSetMemberState;
 import com.github.silaev.mongodb.replicaset.util.ConnectionUtils;
 import com.mongodb.MongoException;
-import com.mongodb.MongoSocketException;
 import com.mongodb.MongoTimeoutException;
 import com.mongodb.ReadPreference;
 import com.mongodb.WriteConcern;

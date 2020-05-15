@@ -29,15 +29,12 @@ public class ConnectionUtils {
         final ConnectionString connectionString = new ConnectionString(mongoRsUrlPrimary);
         return MongoClientSettings.builder()
             .writeConcern(writeConcern.withWTimeout(5, TimeUnit.SECONDS))
-            //.retryWrites(false)
-            //.retryReads(false)
             .applyToClusterSettings(c -> c.serverSelectionTimeout(timeout, TimeUnit.SECONDS))
             .applyConnectionString(connectionString)
             .applyToSocketSettings(
                 b -> b
                     .readTimeout(timeout, TimeUnit.SECONDS)
                     .connectTimeout(timeout, TimeUnit.SECONDS)
-
             ).build();
     }
 

@@ -1,4 +1,4 @@
-# Java8 MongoDbReplicaSet to construct a full-featured MongoDB cluster for integration testing, reproducing production issues, learning distributed systems by the example of MongoDB   
+# Java8 MongoDBReplicaSet to construct a full-featured MongoDB cluster for integration testing, reproducing production issues, learning distributed systems by the example of MongoDB   
 [![Build Status](https://travis-ci.org/silaev/mongodb-replica-set.svg?branch=master)](https://travis-ci.org/silaev/mongodb-replica-set)
 [![codecov](https://codecov.io/gh/silaev/mongodb-replica-set/branch/master/graph/badge.svg)](https://codecov.io/gh/silaev/mongodb-replica-set)
 
@@ -13,7 +13,7 @@
     from 2 to 7 (including)  | only if adding <b>127.0.0.1 dockerhost</b> to the OS host file | + | + | + |
 
 Tip:
-A single node replica set is the fastest one among others. That's the default mode for MongoDbReplicaSet.
+A single node replica set is the fastest among others. That  is the default mode for MongoDbReplicaSet.
 However, to use only it, consider the [Testcontainers MongoDB module on GitHub](https://www.testcontainers.org/modules/databases/mongodb/)
     
 #### Getting it
@@ -36,14 +36,14 @@ dependencies {
 ```
 Replace ${LATEST_RELEASE} with [the Latest Version Number](https://search.maven.org/search?q=g:com.github.silaev%20AND%20a:mongodb-replica-set) 
     
-#### MongoDB versions that MongoReplicaSet is constantly tested against
+#### MongoDB versions that MongoDbReplicaSet is constantly tested against
 version | transaction support |
 ---------- | ---------- |
 3.6.14 |-|
 4.0.12 |+|
 4.2.0 |+|
  
-#### Examples (note that MongoReplicaSet is test framework agnostic)
+#### Examples
 ```java
 class ITTest {
     @Test
@@ -58,13 +58,14 @@ class ITTest {
                 mongoDbReplicaSet.nodeStates(mongoDbReplicaSet.getMongoRsStatus().getMembers()),
                 hasItem(ReplicaSetMemberState.PRIMARY)
             );
+            assertNotNull(mongoDbReplicaSet.getReplicaSetUrl());
         }
     }
 
     @Test
     void testFaultTolerance() {
         try (
-            //create a PSA mongoDbReplicaSet with try-with-resources
+            //create a PSA mongoDbReplicaSet and auto-close it afterwards
             final MongoDbReplicaSet mongoDbReplicaSet = MongoDbReplicaSet.builder()
                 //with 2 working nodes
                 .replicaSetNumber(2)
@@ -76,15 +77,16 @@ class ITTest {
         ) {
             //start it
             mongoDbReplicaSet.start();
-
+            assertNotNull(mongoDbReplicaSet.getReplicaSetUrl());
+            
             //get a primary node
             final MongoNode masterNode = mongoDbReplicaSet.getMasterMongoNode(
                 mongoDbReplicaSet.getMongoRsStatus().getMembers()
             );
 
-            //cut of masterNode from network
+            //cut off the primary node from network
             mongoDbReplicaSet.disconnectNodeFromNetwork(masterNode);
-            //wait until a new master is elected that is different from the masterNode
+            //wait until a new primary is elected that is different from the masterNode
             mongoDbReplicaSet.waitForMasterReelection(masterNode);
             assertThat(
                 mongoDbReplicaSet.nodeStates(mongoDbReplicaSet.getMongoRsStatus().getMembers()),
@@ -94,7 +96,7 @@ class ITTest {
                 )
             );
 
-            //bring back the masterNode
+            //bring back the disconnected masterNode
             mongoDbReplicaSet.connectNodeToNetwork(masterNode);
             //wait until all nodes are up and running
             mongoDbReplicaSet.waitForAllMongoNodesUp();
@@ -109,9 +111,7 @@ class ITTest {
         }
     }
 }
-```
- 
- 
+``` 
 - See more examples in the test sources [mongodb-replica-set on github](https://github.com/silaev/mongodb-replica-set/tree/master/src/test/java/com/github/silaev/mongodb/replicaset/integration)
 - See a full Spring Boot + Spring Data example [wms on github](https://github.com/silaev/wms/blob/master/src/test/java/com/silaev/wms/integration/ProductControllerITTest.java/)
 
@@ -124,7 +124,7 @@ dealing with network partitioning, analyze the election process and so on).
    
 #### General info
 MongoDB starting from version 4 supports multi-document transactions only on a replica set.
-For example, to initialize a 3 replica set on fixed ports via Docker, one has to do the following:
+For example, to initialize a 3 node replica set on fixed ports via Docker, one has to do the following:
 1. Add `127.0.0.1 mongo1 mongo2 mongo3` to the host file of an operation system;
 2. Run in terminal:
     - `docker network create mongo-cluster`
@@ -152,7 +152,7 @@ That's where the MongoDbReplicaSet might come in handy.
 #### Supported features 
 Feature | Description | default value | how to set | 
 ---------- | ----------- | ----------- | ----------- |
-replicaSetNumber | The number of voting nodes in a replica set including a master node | 1 | MongoDbReplicaSet.builder() |
+replicaSetNumber | The number of voting nodes in a replica set including a master one | 1 | MongoDbReplicaSet.builder() |
 awaitNodeInitAttempts | The number of approximate seconds to wait for a master or an arbiter node(if addArbiter=true) | 29 starting from 0 | MongoDBReplicaSet.builder() | 
 propertyFileName | yml file located on the classpath | none | MongoDbReplicaSet.builder() |
 mongoDockerImageName | a MongoDB docker file name | mongo:4.0.10 | finds first set:<br/>1) MongoDbReplicaSet.builder()<br/> 2) the system property mongoReplicaSetProperties.mongoDockerImageName<br/> 3) propertyFile<br/> 4) default value | 

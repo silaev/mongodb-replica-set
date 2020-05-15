@@ -479,7 +479,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     ) {
         val execResultMasterAddress = execMongoDbCommandInContainer(
             mongoContainer,
-            buildJsIfCommand(
+            buildJsIfStatement(
                 "rs.status().ok==1",
                 "rs.status().members.find(o => o.state == 1).name"
             )
@@ -516,7 +516,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
      * @return generated if-then-else JS clause
      */
     @NotNull
-    private String buildJsIfCommand(final String condition, final String thenClause) {
+    private String buildJsIfStatement(final String condition, final String thenClause) {
         return String.format("if (%s) {%s} else {%s}", condition, thenClause, RS_EXCEPTION);
     }
 
@@ -752,7 +752,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
                 )
             );
         log.debug("replicaSetInitializer: {}", replicaSetInitializer);
-        return "cfg = " + replicaSetInitializer + buildJsIfCommand("cfg.ok==1", "cfg");
+        return "cfg = " + replicaSetInitializer + buildJsIfStatement("cfg.ok==1", "cfg");
     }
 
     private String buildMongoRsUrl(final String readPreference) {
