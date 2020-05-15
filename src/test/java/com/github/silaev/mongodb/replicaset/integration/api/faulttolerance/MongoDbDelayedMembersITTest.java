@@ -15,8 +15,6 @@ import lombok.val;
 import org.bson.Document;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
-import org.junit.jupiter.api.parallel.Execution;
-import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import java.util.concurrent.TimeUnit;
 
@@ -33,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * @author Konstantin Silaev on 5/8/2020
  */
 @IntegrationTest
-@Execution(ExecutionMode.CONCURRENT)
 @Slf4j
 class MongoDbDelayedMembersITTest {
     @Test

@@ -15,8 +15,6 @@ import com.mongodb.client.model.Filters;
 import lombok.val;
 import org.bson.Document;
 import org.junit.jupiter.api.function.Executable;
-import org.junit.jupiter.api.parallel.Execution;
-import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -35,7 +33,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * @author Konstantin Silaev on 1/28/2020
  */
 @IntegrationTest
-@Execution(ExecutionMode.CONCURRENT)
 class MongoDbReplicaSetDistributionITTest {
     /**
      * If Data Center 1 goes down, the replica set becomes read-only.

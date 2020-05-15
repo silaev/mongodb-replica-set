@@ -34,9 +34,10 @@ script:
     ./gradlew clean build --no-daemon -DmongoReplicaSetProperties.mongoDockerImageName=mongo:${MONGO_VERSION};
   - echo "*** run integration tests (MongoDB $MONGO_VERSION) in docker-only mode";
     docker-compose -f docker-compose-it-test.yml up -d;
-    travis_wait 30 docker wait run-it-test-mongodb-replica-set;
+    travis_wait 40 docker wait run-it-test-mongodb-replica-set;
     docker logs run-it-test-mongodb-replica-set;
   - if [[ $(docker inspect run-it-test-mongodb-replica-set --format='{{.State.ExitCode}}') == '1' ]]; then
+    docker inspect run-it-test-mongodb-replica-set --format='{{json .State}}';
     exit 1;
     fi
 
