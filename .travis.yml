@@ -37,7 +37,7 @@ script:
     travis_wait 40 docker wait run-it-test-mongodb-replica-set;
     docker logs run-it-test-mongodb-replica-set;
   - if [[ $(docker inspect run-it-test-mongodb-replica-set --format='{{.State.ExitCode}}') == '1' ]]; then
-    docker inspect run-it-test-mongodb-replica-set --format='{{json .State}}';
+    echo $(docker inspect run-it-test-mongodb-replica-set --format='{{json .State}}');
     exit 1;
     fi
 

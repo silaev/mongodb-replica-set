@@ -16,6 +16,8 @@ import org.bson.Document;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -94,9 +96,14 @@ class MongoDbDelayedMembersITTest {
                 ) {
                     val collectionNew = CollectionUtils.getCollection(mongoReactiveClientNew, dbName, collectionName);
                     log.debug("Wait for docsAfterDelayedPrimaryNewConnection");
-                    val docsAfterDelayedPrimaryNewConnection = SubscriberHelperUtils.getSubscriber(
-                        collectionNew.find(filterDoc1).first()
-                    ).get(10, TimeUnit.SECONDS);
+                    List<Document> docsAfterDelayedPrimaryNewConnection;
+                    try {
+                        docsAfterDelayedPrimaryNewConnection = SubscriberHelperUtils.getSubscriber(
+                            collectionNew.find(filterDoc1).first()
+                        ).get(10, TimeUnit.SECONDS);
+                    } catch (MongoTimeoutException mte) {
+                        docsAfterDelayedPrimaryNewConnection = new ArrayList<>();
+                    }
 
                     //THEN
                     log.debug("assertThrows executableDoc1AfterDelayedPrimary");
