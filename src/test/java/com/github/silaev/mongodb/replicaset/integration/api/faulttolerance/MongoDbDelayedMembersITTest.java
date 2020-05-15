@@ -84,7 +84,7 @@ class MongoDbDelayedMembersITTest {
                 mongoReplicaSet.waitForMasterReelection(masterNode);
                 final Executable executableDoc1AfterDelayedPrimary =
                     () -> SubscriberHelperUtils.getSubscriber(collection.find(filterDoc1).first())
-                        .get(5, TimeUnit.SECONDS);
+                        .get(10, TimeUnit.SECONDS);
 
                 //getting a new connection to perform operations
                 try (
@@ -99,7 +99,7 @@ class MongoDbDelayedMembersITTest {
                     log.debug("Wait for docsAfterDelayedPrimaryNewConnection");
                     val docsAfterDelayedPrimaryNewConnection = SubscriberHelperUtils.getSubscriber(
                         collectionNew.find(filterDoc1).first()
-                    ).get(5, TimeUnit.SECONDS);
+                    ).get(10, TimeUnit.SECONDS);
 
                     //THEN
                     log.debug("assertThrows executableDoc1AfterDelayedPrimary");
