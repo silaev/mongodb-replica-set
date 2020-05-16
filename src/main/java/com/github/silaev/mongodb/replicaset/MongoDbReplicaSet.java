@@ -104,6 +104,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     private static final String RS_STATUS_MEMBERS_DEFINED_CONDITION = "rs.status().ok == 1 && rs.status().members != undefined && ";
     private static final String RS_EXCEPTION = "throw new Error('Replica set status is not ok, errmsg: ' + rs.status().errmsg +" +
         " ', codeName: ' + rs.status().codeName);";
+    private static final String MONGODB_DATABASE_NAME_DEFAULT = "test";
     private final StringToMongoRsStatusConverter statusConverter;
     private final MongoNodeToMongoSocketAddressConverter socketAddressConverter;
     private final ApplicationProperties properties;
@@ -765,7 +766,8 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
                 Collectors.joining(
                     ",",
                     "mongodb://",
-                    String.format("/%s&readPreference=%s",
+                    String.format("/%s%s&readPreference=%s",
+                        MONGODB_DATABASE_NAME_DEFAULT,
                         getReplicaSetNumber() == 1 ? "" : "?replicaSet=docker-rs",
                         readPreference
                     )
