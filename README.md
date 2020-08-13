@@ -42,6 +42,7 @@ version | transaction support |
 3.6.14 |-|
 4.0.12 |+|
 4.2.0 |+|
+4.4.0 |+|
  
 #### Examples
 ```java

@@ -37,8 +37,10 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -105,6 +107,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     private static final String RS_EXCEPTION = "throw new Error('Replica set status is not ok, errmsg: ' + rs.status().errmsg +" +
         " ', codeName: ' + rs.status().codeName);";
     private static final String MONGODB_DATABASE_NAME_DEFAULT = "test";
+    private static final Pattern MS_EXPIRED = Pattern.compile("(?i).*\"codeName\" : \"MaxTimeMSExpired\".*");
     private final StringToMongoRsStatusConverter statusConverter;
     private final MongoNodeToMongoSocketAddressConverter socketAddressConverter;
     private final ApplicationProperties properties;
@@ -680,7 +683,9 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         final Container.ExecResult execResult,
         final String commandDescription
     ) {
-        if (execResult.getExitCode() != CONTAINER_EXIT_CODE_OK) {
+        if (execResult.getExitCode() != CONTAINER_EXIT_CODE_OK
+            || MS_EXPIRED.matcher(execResult.getStdout()).find()
+        ) {
             val errorMessage = String.format(
                 "Error occurred while %s: %s",
                 commandDescription,
@@ -814,7 +819,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             .withExposedPorts(MONGO_DB_INTERNAL_PORT)
             .withCommand("--bind_ip", "0.0.0.0", "--replSet", "docker-rs")
             .waitingFor(
-                Wait.forLogMessage(".*waiting for connections on port.*", 1)
+                Wait.forLogMessage("(?i).*waiting for connections.*", 1)
             );
         mongoDbContainer.start();
         return mongoDbContainer;
@@ -1022,6 +1027,12 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         }
     }
 
+    public synchronized void connectNodeToNetwork(
+        final MongoNode mongoNode
+    ) {
+        connectNodeToNetwork(mongoNode, false);
+    }
+
     /**
      * Connects a Mongo node (a Docker container) back to its network
      * with forcing a cluster reconfiguration (in case there is no master in
@@ -1030,10 +1041,13 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
      * because of a container restart.
      *
      * @param mongoNode a node to connect.
+     * @param force     Only relevant to hard disconnection (without Toxyproxy).
+     *                  If true then re-configures with force to remove a node, otherwise calls rs.remove.
      * @see <a href="https://docs.docker.com/engine/reference/commandline/network_connect/">docker network connect</a>
      */
     public synchronized void connectNodeToNetwork(
-        final MongoNode mongoNode
+        final MongoNode mongoNode,
+        boolean force
     ) {
         validateFaultToleranceTestSupportAvailability();
         verifyWorkingNodeStoreIsNotEmpty();
@@ -1045,6 +1059,9 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         val disconnectedNode = pair.getRight();
 
         if (getAddToxiproxy()) {
+            if (force) {
+                throw new IllegalArgumentException("addToxiproxy does not work with force");
+            }
             extractGenericContainer(disconnectedMongoSocketAddress, toxyNodeStore).setConnectionCut(false);
             addNodeToInternalStore(isWorkingNode, disconnectedMongoSocketAddress, disconnectedNode);
         } else {
@@ -1058,7 +1075,11 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             waitForMaster();
             val masterNode = findMasterElected(workingNodeStore.values().iterator().next());
 
-            removeNodeFromReplSetConfig(disconnectedMongoSocketAddress, masterNode);
+            if (force) {
+                removeNodeFromReplSetConfigWithForce(disconnectedMongoSocketAddress, masterNode);
+            } else {
+                removeNodeFromReplSetConfig(disconnectedMongoSocketAddress, masterNode);
+            }
 
             val newMongoSocketAddress = getMongoSocketAddress(
                 mongoNode.getIp(),
@@ -1083,7 +1104,10 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         }
     }
 
-    private void reconfigureReplSetRemoveDownAndUnknownNodes() {
+    /**
+     * Removes all nodes in Down and Unknown state.
+     */
+    public void reconfigureReplSetRemoveDownAndUnknownNodes() {
         val members = getMongoRsStatus().getMembers();
         val replicaSetReConfig = getReplicaSetReConfigRemoveDownAndUnknownNodes(members);
         log.debug("Reconfiguring a node replica set as per: {}", replicaSetReConfig);
@@ -1102,12 +1126,16 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     /**
      * Reconfigures a replica set by setting slaveDelay=0, priority=1 and hidden=false
      * for each node.
+     *
+     * @param allMembers
+     * @param membersToDefault
      */
-    public void reconfigureReplSetToDefaults() {
+    public void reconfigureReplSetToDefaults(
+        final List<MongoNode> allMembers,
+        final Set<MongoNode> membersToDefault
+    ) {
         verifyWorkingNodeStoreIsNotEmpty();
-
-        val members = getMongoRsStatus().getMembers();
-        val replicaSetReConfig = getReplicaSetReConfigWithoutSlaveDelay(members);
+        val replicaSetReConfig = getReplicaSetReConfigUnsetSlaveDelay(allMembers, membersToDefault);
         log.debug("Reconfiguring a node replica set as per: {}", replicaSetReConfig);
         val execResult = execMongoDbCommandInContainer(
             workingNodeStore.values().iterator().next(),
@@ -1121,31 +1149,106 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         );
     }
 
-    private String getReplicaSetReConfigWithoutSlaveDelay(List<MongoNode> members) {
-        return IntStream.range(0, members.size())
+    @Generated
+    void dropConnections(List<MongoNode> members) {
+        operateOnConnections(members, 1);
+    }
+
+    @Generated
+    void enableConnections(List<MongoNode> members) {
+        operateOnConnections(members, 0);
+    }
+
+    @Generated
+    private void operateOnConnections(List<MongoNode> members, int drop) {
+        verifyWorkingNodeStoreIsNotEmpty();
+        val replicaSetReConfig = getDropConnectionsCommand(members, drop);
+        log.debug("Dropping connection: {}", replicaSetReConfig);
+        val execResult = execMongoDbCommandInContainer(
+            workingNodeStore.values().iterator().next(),
+            replicaSetReConfig
+        );
+        log.debug(execResult.getStdout());
+
+        checkMongoNodeExitCode(
+            execResult,
+            "Dropping connection"
+        );
+    }
+
+    /**
+     * New in version 4.2.
+     * <p>
+     * The dropConnections command drops the mongod/mongos instance’s outgoing connections to the specified hosts.
+     *
+     * @param members
+     * @param drop
+     * @return
+     */
+    @Generated
+    private String getDropConnectionsCommand(
+        final List<MongoNode> members,
+        final int drop
+    ) {
+        return members.stream().map(member -> String.format(
+            "\"%s:%d\"",
+            member.getIp(), member.getPort()
+        )).collect(Collectors.joining(
+            ",",
+            String.format("db.adminCommand({\"dropConnections\" : %d, \"hostAndPort\":[", drop),
+            "]});"
+            )
+        );
+    }
+
+    @Generated
+    private String getReplicaSetReConfigUnsetSlaveDelay(
+        final List<MongoNode> allMembers,
+        final Set<MongoNode> membersToDefault
+    ) {
+        return IntStream.range(0, allMembers.size())
+            .filter(i -> membersToDefault.contains(allMembers.get(i)))
             .mapToObj(
                 i -> String.format(
-                    "cfg.members[%d].slaveDelay=0;cfg.members[%d].priority=1;cfg.members[%d].hidden=false"
-                    , i, i, i
+                    "cfg.members[%d].slaveDelay=0;cfg.members[%d].priority=1;cfg.members[%d].hidden=false",
+                    i, i, i
                 )
             ).collect(Collectors.joining(
                 ";\n",
                 "cfg = rs.conf();\n",
-                ";\nrs.reconfig(cfg, {force : true})")
+                ";\nrs.reconfig(cfg, {force : true, maxTimeMS: 5000})")
             );
     }
 
-    private String getReplicaSetReConfigRemoveDownAndUnknownNodes(List<MongoNode> members) {
+    private String getReplicaSetReConfigRemoveDownAndUnknownNodes(
+        final List<MongoNode> members
+    ) {
         return IntStream.range(0, members.size())
             .filter(i -> {
                 val memberState = members.get(i).getState();
                 return !(memberState == ReplicaSetMemberState.DOWN || memberState == ReplicaSetMemberState.UNKNOWN);
             })
-            .mapToObj(i -> String.format("[cfg.members[%d]]", i))
+            .mapToObj(i -> String.format("cfg.members[%d]", i))
             .collect(Collectors.joining(
-                ";\n",
-                "cfg = rs.conf(); cfg.members = ",
-                ";rs.reconfig(cfg, {force : true})")
+                ",",
+                "cfg = rs.conf();\ncfg.members = [",
+                "];\nrs.reconfig(cfg, {force : true, maxTimeMS: 5000})")
+            );
+    }
+
+    private String getReplicaSetReConfigRemoveNode(final MongoSocketAddress mongoSocketAddress) {
+        final List<MongoNode> members = getMongoRsStatus().getMembers();
+        return IntStream.range(0, members.size())
+            .filter(i -> {
+                final MongoNode mongoNode = members.get(i);
+                return !(Objects.equals(mongoSocketAddress.getIp(), mongoNode.getIp())
+                    && Objects.equals(mongoSocketAddress.getMappedPort(), mongoNode.getPort()));
+            })
+            .mapToObj(i -> String.format("cfg.members[%d]", i))
+            .collect(Collectors.joining(
+                ",",
+                "cfg = rs.conf();\ncfg.members = [",
+                "];\nrs.reconfig(cfg, {force : true, maxTimeMS: 5000})")
             );
     }
 
@@ -1213,6 +1316,34 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         );
     }
 
+    public void removeNodeFromReplSetConfigWithForce(final MongoNode mongoNodeToRemove) {
+        validateFaultToleranceTestSupportAvailability();
+        verifyWorkingNodeStoreIsNotEmpty();
+
+        removeNodeFromReplSetConfigWithForce(
+            socketAddressConverter.convert(mongoNodeToRemove),
+            findMasterElected(workingNodeStore.values().iterator().next())
+        );
+    }
+
+    private void removeNodeFromReplSetConfigWithForce(
+        final MongoSocketAddress mongoSocketAddressToRemove,
+        final GenericContainer masterNode
+    ) {
+        val replicaSetReConfig = getReplicaSetReConfigRemoveNode(mongoSocketAddressToRemove);
+        log.debug("Reconfiguring a node replica set as per: {}", replicaSetReConfig);
+        val execResult = execMongoDbCommandInContainer(
+            masterNode,
+            replicaSetReConfig
+        );
+        log.debug(execResult.getStdout());
+
+        checkMongoNodeExitCode(
+            execResult,
+            "Reconfiguring a replica set"
+        );
+    }
+
     private void removeNodeFromReplSetConfig(
         final MongoSocketAddress mongoSocketAddressToRemove,
         final GenericContainer masterNode
@@ -1235,6 +1366,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             "Removing a node"
         );
     }
+
 
     /**
      * Restarts a container.
@@ -1410,7 +1542,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             );
     }
 
-    private Stream<MongoNode> mongoNodes(
+    public Stream<MongoNode> mongoNodes(
         final List<MongoNode> mongoNodes,
         final ReplicaSetMemberState memberState
     ) {

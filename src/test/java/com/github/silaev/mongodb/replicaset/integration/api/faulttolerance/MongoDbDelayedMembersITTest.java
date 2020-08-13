@@ -3,6 +3,7 @@ package com.github.silaev.mongodb.replicaset.integration.api.faulttolerance;
 import com.github.silaev.mongodb.replicaset.MongoDbReplicaSet;
 import com.github.silaev.mongodb.replicaset.core.IntegrationTest;
 import com.github.silaev.mongodb.replicaset.model.Pair;
+import com.github.silaev.mongodb.replicaset.model.ReplicaSetMemberState;
 import com.github.silaev.mongodb.replicaset.util.CollectionUtils;
 import com.github.silaev.mongodb.replicaset.util.ConnectionUtils;
 import com.github.silaev.mongodb.replicaset.util.SubscriberHelperUtils;
@@ -13,12 +14,14 @@ import com.mongodb.reactivestreams.client.MongoClients;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.bson.Document;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.StringContains.containsString;
@@ -33,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * @author Konstantin Silaev on 5/8/2020
  */
 @IntegrationTest
+@Disabled
 @Slf4j
 class MongoDbDelayedMembersITTest {
     @Test
@@ -61,9 +65,8 @@ class MongoDbDelayedMembersITTest {
 
                 val dbName = "test";
                 val collectionName = "foo";
-                val masterNode = mongoReplicaSet.getMasterMongoNode(
-                    mongoReplicaSet.getMongoRsStatus().getMembers()
-                );
+                val members = mongoReplicaSet.getMongoRsStatus().getMembers();
+                val masterNode = mongoReplicaSet.getMasterMongoNode(members);
 
                 val docPair1 = Pair.of("xyz", 100);
                 val doc1 = new Document(docPair1.getLeft(), docPair1.getRight());
@@ -79,7 +82,10 @@ class MongoDbDelayedMembersITTest {
                 final Document doc1ActualBeforeDisconnection = receivedBeforeDisconnection.get(0);
 
                 mongoReplicaSet.disconnectNodeFromNetwork(masterNode);
-                mongoReplicaSet.reconfigureReplSetToDefaults();
+                mongoReplicaSet.reconfigureReplSetToDefaults(
+                    members,
+                    mongoReplicaSet.mongoNodes(members, ReplicaSetMemberState.SECONDARY).collect(Collectors.toSet())
+                );
                 mongoReplicaSet.waitForMasterReelection(masterNode);
                 final Executable executableDoc1AfterDelayedPrimary =
                     () -> SubscriberHelperUtils.getSubscriber(collection.find(filterDoc1).first())

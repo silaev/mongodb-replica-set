@@ -15,4 +15,5 @@
     <logger name="com.github.silaev.mongodb.replicaset" level="DEBUG"/>
     <logger name="org.testcontainers" level="INFO"/>
     <logger name="com.github.dockerjava" level="WARN"/>
+    <logger name="com.mongodb" level="DEBUG"/>
 </configuration>

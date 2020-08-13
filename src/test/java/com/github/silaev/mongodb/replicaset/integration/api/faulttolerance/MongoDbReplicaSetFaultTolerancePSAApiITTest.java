@@ -77,7 +77,7 @@ class MongoDbReplicaSetFaultTolerancePSAApiITTest {
         //===STAGE 2: Surviving a failure.
         //WHEN: Wait for reelection.
         mongoReplicaSet.waitForMasterReelection(currentMasterNode);
-        mongoReplicaSet.removeNodeFromReplSetConfig(currentMasterNode);
+        mongoReplicaSet.removeNodeFromReplSetConfigWithForce(currentMasterNode);
         val actualNodeStatesAfterElection =
             mongoReplicaSet.nodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
 
@@ -135,7 +135,7 @@ class MongoDbReplicaSetFaultTolerancePSAApiITTest {
 
         //===STAGE 3: Connecting a disconnected node back.
         //WHEN: Connect back.
-        mongoReplicaSet.connectNodeToNetwork(currentMasterNode);
+        mongoReplicaSet.connectNodeToNetwork(currentMasterNode, true);
         mongoReplicaSet.waitForAllMongoNodesUp();
         val actualNodeStatesAfterConnectingBack =
             mongoReplicaSet.nodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
