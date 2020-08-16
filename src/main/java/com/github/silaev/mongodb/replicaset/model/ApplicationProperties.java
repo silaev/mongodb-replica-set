@@ -18,4 +18,5 @@ public class ApplicationProperties {
     private final boolean addArbiter;
     private final boolean addToxiproxy;
     private final int slaveDelayTimeout;
+    private final int slaveDelayNumber;
 }

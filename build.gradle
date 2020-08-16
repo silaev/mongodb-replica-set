@@ -3,8 +3,8 @@ import io.franzbecker.gradle.lombok.task.DelombokTask
 buildscript {
     ext {
         junitVersion = '5.6.0'
-        testcontainersVersion = '1.14.1'
-        mongodbDriverVersion = '4.0.2'
+        testcontainersVersion = '1.14.3'
+        mongodbDriverVersion = '4.1.0'
     }
 }
 
@@ -22,7 +22,7 @@ plugins {
 apply from: "$rootDir/gradle/jacoco.gradle"
 
 group = 'com.github.silaev'
-version = '0.3.1'
+version = '0.4.0'
 
 repositories {
     mavenCentral()

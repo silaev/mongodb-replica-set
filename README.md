@@ -42,6 +42,7 @@ version | transaction support |
 3.6.14 |-|
 4.0.12 |+|
 4.2.0 |+|
+4.4.0 |+|
  
 #### Examples
 ```java
@@ -50,7 +51,9 @@ class ITTest {
     void testDefaultSingleNode() {
         try (
             //create a single node mongoDbReplicaSet and auto-close it afterwards
-            final MongoDbReplicaSet mongoDbReplicaSet = MongoDbReplicaSet.builder().build()
+            final MongoDbReplicaSet mongoDbReplicaSet = MongoDbReplicaSet.builder()
+                .mongoDockerImageName("mongo:4.4.0")
+                .build()
         ) {
             //start it
             mongoDbReplicaSet.start();
@@ -67,6 +70,8 @@ class ITTest {
         try (
             //create a PSA mongoDbReplicaSet and auto-close it afterwards
             final MongoDbReplicaSet mongoDbReplicaSet = MongoDbReplicaSet.builder()
+                //with the latest mongo:4.4.0 docker image
+                .mongoDockerImageName("mongo:4.4.0")
                 //with 2 working nodes
                 .replicaSetNumber(2)
                 //with an arbiter node
@@ -78,7 +83,7 @@ class ITTest {
             //start it
             mongoDbReplicaSet.start();
             assertNotNull(mongoDbReplicaSet.getReplicaSetUrl());
-            
+
             //get a primary node
             final MongoNode masterNode = mongoDbReplicaSet.getMasterMongoNode(
                 mongoDbReplicaSet.getMongoRsStatus().getMembers()

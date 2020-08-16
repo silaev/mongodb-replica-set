@@ -9,9 +9,9 @@ import lombok.Value;
  * @author Konstantin Silaev
  */
 @Value(staticConstructor = "of")
-public final class MongoNode {
-    private final String ip;
-    private final Integer port;
-    private final Double health;
-    private final ReplicaSetMemberState state;
+public class MongoNode {
+    String ip;
+    Integer port;
+    Double health;
+    ReplicaSetMemberState state;
 }
