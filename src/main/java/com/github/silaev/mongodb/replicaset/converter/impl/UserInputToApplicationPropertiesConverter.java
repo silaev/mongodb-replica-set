@@ -114,6 +114,7 @@ public class UserInputToApplicationPropertiesConverter
             .orElse(UserInputToApplicationPropertiesConverter.ADD_ARBITER_DEFAULT);
         val addToxiproxy = Optional.ofNullable(inputProperties.getAddToxiproxy()).orElse(false);
         val slaveDelayTimeout = Optional.ofNullable(inputProperties.getSlaveDelayTimeout()).orElse(0);
+        val slaveDelayNumber = Optional.ofNullable(inputProperties.getSlaveDelayNumber()).orElse(0);
 
         return ApplicationProperties.builder()
             .replicaSetNumber(replicaSetNumber)
@@ -123,6 +124,7 @@ public class UserInputToApplicationPropertiesConverter
             .isEnabled(isEnabled)
             .addToxiproxy(addToxiproxy)
             .slaveDelayTimeout(slaveDelayTimeout)
+            .slaveDelayNumber(slaveDelayNumber)
             .build();
     }
 
@@ -151,6 +153,19 @@ public class UserInputToApplicationPropertiesConverter
             inputProperties.getSlaveDelayTimeout() > 0 && inputProperties.getReplicaSetNumber() == 1) {
             throw new IncorrectUserInputException(
                 "Cannot create a replica set with delayed members having only one member"
+            );
+        }
+
+        if (Objects.nonNull(inputProperties.getSlaveDelayNumber()) && (Objects.nonNull(inputProperties.getReplicaSetNumber())) &&
+            (inputProperties.getSlaveDelayNumber() > inputProperties.getReplicaSetNumber())) {
+            throw new IncorrectUserInputException(
+                "Cannot create a replica set with delayed members because slaveDelayNumber>replicaSetNumber"
+            );
+        }
+
+        if (Objects.nonNull(inputProperties.getSlaveDelayNumber()) && inputProperties.getSlaveDelayTimeout()==0) {
+            throw new IncorrectUserInputException(
+                "Please, specify slaveDelayTimeout"
             );
         }
     }

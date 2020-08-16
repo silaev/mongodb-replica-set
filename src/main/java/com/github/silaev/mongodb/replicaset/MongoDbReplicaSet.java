@@ -37,7 +37,6 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.regex.Pattern;
@@ -107,7 +106,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     private static final String RS_EXCEPTION = "throw new Error('Replica set status is not ok, errmsg: ' + rs.status().errmsg +" +
         " ', codeName: ' + rs.status().codeName);";
     private static final String MONGODB_DATABASE_NAME_DEFAULT = "test";
-    private static final Pattern MS_EXPIRED = Pattern.compile("(?i).*\"codeName\" : \"MaxTimeMSExpired\".*");
+    private static final Pattern OK_PATTERN = Pattern.compile("(?i).*\"ok\" : 1.*");
     private final StringToMongoRsStatusConverter statusConverter;
     private final MongoNodeToMongoSocketAddressConverter socketAddressConverter;
     private final ApplicationProperties properties;
@@ -128,7 +127,8 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         final String mongoDockerImageName,
         final Boolean addArbiter,
         final Boolean addToxiproxy,
-        final Integer slaveDelayTimeout
+        final Integer slaveDelayTimeout,
+        final Integer slaveDelayNumber
     ) {
         val propertyConverter =
             new UserInputToApplicationPropertiesConverter();
@@ -142,6 +142,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
                 .addArbiter(addArbiter)
                 .addToxiproxy(addToxiproxy)
                 .slaveDelayTimeout(slaveDelayTimeout)
+                .slaveDelayNumber(slaveDelayNumber)
                 .build()
         );
         this.statusConverter = new StringToMongoRsStatusConverter();
@@ -256,6 +257,10 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
 
     public int getSlaveDelayTimeout() {
         return properties.getSlaveDelayTimeout();
+    }
+
+    public int getSlaveDelayNumber() {
+        return properties.getSlaveDelayNumber();
     }
 
     /**
@@ -389,7 +394,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         );
         val stdoutInitRs = execResultInitRs.getStdout();
         log.debug("initMasterNode => execResultInitRs: {}", stdoutInitRs);
-        checkMongoNodeExitCode(
+        checkMongoNodeExitCodeAndStatus(
             execResultInitRs,
             "initializing a master node"
         );
@@ -640,7 +645,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             )
         );
         log.debug("Add an arbiter node result: {}", execResultAddArbiter.getStdout());
-        checkMongoNodeExitCode(
+        checkMongoNodeExitCodeAndStatus(
             execResultAddArbiter,
             "initializing an arbiter node"
         );
@@ -679,13 +684,34 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         }
     }
 
+    @SneakyThrows
     void checkMongoNodeExitCode(
         final Container.ExecResult execResult,
         final String commandDescription
     ) {
-        if (execResult.getExitCode() != CONTAINER_EXIT_CODE_OK
-            || MS_EXPIRED.matcher(execResult.getStdout()).find()
-        ) {
+        Objects.requireNonNull(execResult);
+        val stdout = execResult.getStdout();
+        Objects.requireNonNull(stdout);
+        if (execResult.getExitCode() != CONTAINER_EXIT_CODE_OK) {
+            val errorMessage = String.format(
+                "Error occurred while %s: %s",
+                commandDescription,
+                execResult.getStdout()
+            );
+            log.error(errorMessage);
+            throw new MongoNodeInitializationException(errorMessage);
+        }
+    }
+
+    @SneakyThrows
+    void checkMongoNodeExitCodeAndStatus(
+        final Container.ExecResult execResult,
+        final String commandDescription
+    ) {
+        Objects.requireNonNull(execResult);
+        val stdout = execResult.getStdout();
+        Objects.requireNonNull(stdout);
+        if (execResult.getExitCode() != CONTAINER_EXIT_CODE_OK || !OK_PATTERN.matcher(stdout).find()) {
             val errorMessage = String.format(
                 "Error occurred while %s: %s",
                 commandDescription,
@@ -733,10 +759,12 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         val addresses = workingNodeStore.keySet().toArray(new MongoSocketAddress[0]);
         val length = addresses.length;
         val slaveDelayTimeout = getSlaveDelayTimeout();
+        val workingNodeNumber = getReplicaSetNumber() + (getAddArbiter() ? 1 : 0) - getSlaveDelayNumber();
+
         String replicaSetInitializer = IntStream.range(0, length)
             .mapToObj(i -> {
                     val address = addresses[i];
-                    if (slaveDelayTimeout > 0 && i > 0) {
+                    if (slaveDelayTimeout > 0 && i > workingNodeNumber - 1) {
                         return String.format(
                             "        {\"_id\": %d, \"host\": \"%s:%d\", \"slaveDelay\":%d, \"priority\": 0, \"hidden\": true}",
                             i, address.getIp(), address.getReplSetPort(), slaveDelayTimeout
@@ -1027,27 +1055,62 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         }
     }
 
+    /**
+     * Connects a Mongo node (a Docker container) back to its network.
+     * Generally should be used in case of soft connections (with Toxyproxy).
+     *
+     * @param mongoNode a node to connect.
+     */
     public synchronized void connectNodeToNetwork(
         final MongoNode mongoNode
     ) {
-        connectNodeToNetwork(mongoNode, false);
+        connectNodeToNetwork(mongoNode, true, false);
     }
 
     /**
-     * Connects a Mongo node (a Docker container) back to its network
-     * with forcing a cluster reconfiguration (in case there is no master in
-     * a cluster after network disconnection).
-     * Beware that a container port changes after this operation
-     * because of a container restart.
+     * Connects a Mongo node (a Docker container) back to its network.
+     * Generally should be used in case of hard connections (without Toxyproxy).
+     * Beware that a container port changes after this operation because of a container restart.
+     * Internally removes a disconnected node via forcing reconfiguration.
      *
      * @param mongoNode a node to connect.
+     */
+    public synchronized void connectNodeToNetworkWithForceRemoval(
+        final MongoNode mongoNode
+    ) {
+        connectNodeToNetwork(mongoNode, true, true);
+    }
+
+    /**
+     * Connects a Mongo node (a Docker container) back to its network.
+     * Generally should be used in case of hard connections (without Toxyproxy).
+     * Beware that a container port changes after this operation because of a container restart.
+     * Internally removes a disconnected node via rs.remove.
+     *
+     * @param mongoNode a node to connect.
+     */
+    public synchronized void connectNodeToNetworkWithoutRemoval(
+        final MongoNode mongoNode
+    ) {
+        connectNodeToNetwork(mongoNode, false, false);
+    }
+
+    /**
+     * Connects a Mongo node (a Docker container) back to its network.
+     * In case of hard disconnection (without Toxyproxy) beware that a container port
+     * changes after this operation because of a container restart.
+     * In case of soft one (with Toxyproxy) calls setConnectionCut(false).
+     *
+     * @param mongoNode a node to connect.
+     * @param remove    Only relevant to hard disconnection (without Toxyproxy). Whether to remove a disconnected mongo node.
      * @param force     Only relevant to hard disconnection (without Toxyproxy).
      *                  If true then re-configures with force to remove a node, otherwise calls rs.remove.
      * @see <a href="https://docs.docker.com/engine/reference/commandline/network_connect/">docker network connect</a>
      */
-    public synchronized void connectNodeToNetwork(
+    private synchronized void connectNodeToNetwork(
         final MongoNode mongoNode,
-        boolean force
+        final boolean remove,
+        final boolean force
     ) {
         validateFaultToleranceTestSupportAvailability();
         verifyWorkingNodeStoreIsNotEmpty();
@@ -1075,10 +1138,12 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             waitForMaster();
             val masterNode = findMasterElected(workingNodeStore.values().iterator().next());
 
-            if (force) {
-                removeNodeFromReplSetConfigWithForce(disconnectedMongoSocketAddress, masterNode);
-            } else {
-                removeNodeFromReplSetConfig(disconnectedMongoSocketAddress, masterNode);
+            if (remove) {
+                if (force) {
+                    removeNodeFromReplSetConfigWithForce(disconnectedMongoSocketAddress, masterNode);
+                } else {
+                    removeNodeFromReplSetConfig(disconnectedMongoSocketAddress, masterNode);
+                }
             }
 
             val newMongoSocketAddress = getMongoSocketAddress(
@@ -1126,24 +1191,18 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     /**
      * Reconfigures a replica set by setting slaveDelay=0, priority=1 and hidden=false
      * for each node.
-     *
-     * @param allMembers
-     * @param membersToDefault
      */
-    public void reconfigureReplSetToDefaults(
-        final List<MongoNode> allMembers,
-        final Set<MongoNode> membersToDefault
-    ) {
+    public void reconfigureReplSetToDefaults() {
         verifyWorkingNodeStoreIsNotEmpty();
-        val replicaSetReConfig = getReplicaSetReConfigUnsetSlaveDelay(allMembers, membersToDefault);
+        val replicaSetReConfig = getReplicaSetReConfigUnsetSlaveDelay();
         log.debug("Reconfiguring a node replica set as per: {}", replicaSetReConfig);
         val execResult = execMongoDbCommandInContainer(
-            workingNodeStore.values().iterator().next(),
+            findMasterElected(workingNodeStore.values().iterator().next()),
             replicaSetReConfig
         );
         log.debug(execResult.getStdout());
 
-        checkMongoNodeExitCode(
+        checkMongoNodeExitCodeAndStatus(
             execResult,
             "Reconfiguring a replica set"
         );
@@ -1163,16 +1222,16 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     private void operateOnConnections(List<MongoNode> members, int drop) {
         verifyWorkingNodeStoreIsNotEmpty();
         val replicaSetReConfig = getDropConnectionsCommand(members, drop);
-        log.debug("Dropping connection: {}", replicaSetReConfig);
+        log.debug("Dropping connections: {}", replicaSetReConfig);
         val execResult = execMongoDbCommandInContainer(
             workingNodeStore.values().iterator().next(),
             replicaSetReConfig
         );
         log.debug(execResult.getStdout());
 
-        checkMongoNodeExitCode(
+        checkMongoNodeExitCodeAndStatus(
             execResult,
-            "Dropping connection"
+            "Dropping connections"
         );
     }
 
@@ -1201,17 +1260,13 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         );
     }
 
-    @Generated
-    private String getReplicaSetReConfigUnsetSlaveDelay(
-        final List<MongoNode> allMembers,
-        final Set<MongoNode> membersToDefault
-    ) {
-        return IntStream.range(0, allMembers.size())
-            .filter(i -> membersToDefault.contains(allMembers.get(i)))
+    private String getReplicaSetReConfigUnsetSlaveDelay() {
+        val workingNodeNumber = getReplicaSetNumber() + (getAddArbiter() ? 1 : 0) - getSlaveDelayNumber();
+        return IntStream.rangeClosed(workingNodeNumber + 1, getMongoRsStatus().getMembers().size())
             .mapToObj(
                 i -> String.format(
                     "cfg.members[%d].slaveDelay=0;cfg.members[%d].priority=1;cfg.members[%d].hidden=false",
-                    i, i, i
+                    i - 1, i - 1, i - 1
                 )
             ).collect(Collectors.joining(
                 ";\n",
@@ -1275,7 +1330,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             )
         );
         log.debug("Add a node: {} to a replica set, stdout: {}", newMongoSocketAddress, execResultAddNode.getStdout());
-        checkMongoNodeExitCode(
+        checkMongoNodeExitCodeAndStatus(
             execResultAddNode,
             "Adding a node"
         );
@@ -1338,7 +1393,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         );
         log.debug(execResult.getStdout());
 
-        checkMongoNodeExitCode(
+        checkMongoNodeExitCodeAndStatus(
             execResult,
             "Reconfiguring a replica set"
         );
@@ -1361,7 +1416,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             mongoSocketAddressToRemove,
             execResultRemoveNode.getStdout()
         );
-        checkMongoNodeExitCode(
+        checkMongoNodeExitCodeAndStatus(
             execResultRemoveNode,
             "Removing a node"
         );

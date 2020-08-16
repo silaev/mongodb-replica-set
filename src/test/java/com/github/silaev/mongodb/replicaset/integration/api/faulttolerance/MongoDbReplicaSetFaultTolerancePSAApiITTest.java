@@ -135,7 +135,7 @@ class MongoDbReplicaSetFaultTolerancePSAApiITTest {
 
         //===STAGE 3: Connecting a disconnected node back.
         //WHEN: Connect back.
-        mongoReplicaSet.connectNodeToNetwork(currentMasterNode, true);
+        mongoReplicaSet.connectNodeToNetworkWithForceRemoval(currentMasterNode);
         mongoReplicaSet.waitForAllMongoNodesUp();
         val actualNodeStatesAfterConnectingBack =
             mongoReplicaSet.nodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());

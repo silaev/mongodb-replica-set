@@ -18,4 +18,5 @@ public final class UserInputProperties {
     private final Boolean addToxiproxy;
     private final Integer slaveDelayTimeout;
     private final String propertyFileName;
+    private final Integer slaveDelayNumber;
 }

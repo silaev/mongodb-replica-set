@@ -110,4 +110,35 @@ class UserInputToApplicationPropertiesConverterTest {
         //THEN
         assertThrows(IncorrectUserInputException.class, executable);
     }
+
+    @Test
+    void shouldNotConvertBecauseSlaveDelayNumberIsMoreThanReplicaSetNumber() {
+        //GIVEN
+        val inputProperties = UserInputProperties.builder()
+            .slaveDelayNumber(6)
+            .replicaSetNumber(4)
+            .slaveDelayTimeout(5000)
+            .build();
+
+        //WHEN
+        Executable executable = () -> converter.convert(inputProperties);
+
+        //THEN
+        assertThrows(IncorrectUserInputException.class, executable);
+    }
+
+    @Test
+    void shouldNotConvertBecauseSlaveDelayTimeoutIsNotSet() {
+        //GIVEN
+        val inputProperties = UserInputProperties.builder()
+            .slaveDelayNumber(6)
+            .replicaSetNumber(4)
+            .build();
+
+        //WHEN
+        Executable executable = () -> converter.convert(inputProperties);
+
+        //THEN
+        assertThrows(IncorrectUserInputException.class, executable);
+    }
 }

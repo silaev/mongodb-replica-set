@@ -10,6 +10,6 @@ import lombok.Value;
  */
 @Value(staticConstructor = "of")
 public class Pair<L, R> {
-    private final L left;
-    private final R right;
+    L left;
+    R right;
 }

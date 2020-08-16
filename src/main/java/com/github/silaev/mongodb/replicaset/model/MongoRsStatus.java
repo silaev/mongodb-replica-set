@@ -11,8 +11,8 @@ import java.util.List;
  * @author Konstantin Silaev
  */
 @Value(staticConstructor = "of")
-public final class MongoRsStatus {
-    private final Integer status;
-    private final MongoDbVersion version;
-    private final List<MongoNode> members;
+public class MongoRsStatus {
+    Integer status;
+    MongoDbVersion version;
+    List<MongoNode> members;
 }

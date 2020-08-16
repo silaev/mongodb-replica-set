@@ -128,14 +128,15 @@ class MongoDbReplicaSetDistributionITTest {
                 switch (disconnectionType) {
                     case HARD:
                         mongoReplicaSet.connectNodeToNetworkWithReconfiguration(masterNode);
+                        mongoReplicaSet.connectNodeToNetworkWithoutRemoval(arbiterNode);
                         break;
                     case SOFT:
                         mongoReplicaSet.connectNodeToNetwork(masterNode);
+                        mongoReplicaSet.connectNodeToNetwork(arbiterNode);
                         break;
                     default:
                         throw new IllegalArgumentException(String.format("Cannot find disconnectionType: %s", disconnectionType));
                 }
-                mongoReplicaSet.connectNodeToNetwork(arbiterNode);
                 mongoReplicaSet.waitForAllMongoNodesUp();
                 mongoReplicaSet.waitForMaster();
                 assertThat(
@@ -227,7 +228,6 @@ class MongoDbReplicaSetDistributionITTest {
 
                 //BRING A DISCONNECTED NODE BACK
                 mongoReplicaSet.connectNodeToNetwork(secondaryNode);
-                //mongoReplicaSet.waitForAllMongoNodesUpWithoutAnyDown();
                 mongoReplicaSet.waitForAllMongoNodesUp();
                 mongoReplicaSet.waitForMaster();
                 assertThat(
