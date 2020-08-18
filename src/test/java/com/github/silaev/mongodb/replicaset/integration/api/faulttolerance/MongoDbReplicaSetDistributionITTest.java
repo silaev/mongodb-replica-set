@@ -39,7 +39,7 @@ class MongoDbReplicaSetDistributionITTest {
      * Uses hard node disconnection via whether removing a network of a container
      * or cutting a connection between a mongo node and a proxy container (Toxiproxy).
      */
-    @ParameterizedTest(name = "{index}: disconnectionType: {0}")
+    @ParameterizedTest(name = "shouldTestReadOnlySecondaryAfterPrimaryAndArbiterHardOrSoftDisconnection: {index}: disconnectionType: {0}")
     @ValueSource(strings = {"HARD", "SOFT"})
     void shouldTestReadOnlySecondaryAfterPrimaryAndArbiterHardOrSoftDisconnection(
         final DisconnectionType disconnectionType
@@ -84,7 +84,6 @@ class MongoDbReplicaSetDistributionITTest {
                 mongoReplicaSet.disconnectNodeFromNetwork(arbiterNode);
                 mongoReplicaSet.disconnectNodeFromNetwork(masterNode);
 
-                //mongoReplicaSet.waitForAllMongoNodesUpAllowingAnyDown();
                 mongoReplicaSet.waitForMongoNodesDown(2);
 
                 final Executable executableReadOperation = () -> collection.find(filter).first();
@@ -158,7 +157,7 @@ class MongoDbReplicaSetDistributionITTest {
      * Uses whether hard node disconnection via removing a network of a container
      * or soft one via cutting a connection between a mongo node and a proxy container (Toxiproxy).
      */
-    @ParameterizedTest(name = "{index}: disconnectionType: {0}")
+    @ParameterizedTest(name = "shouldTestWriteablePrimaryAfterSecondaryHardOrSoftDisconnection: {index}: disconnectionType: {0}")
     @ValueSource(strings = {"HARD", "SOFT"})
     void shouldTestWriteablePrimaryAfterSecondaryHardOrSoftDisconnection(
         final DisconnectionType disconnectionType

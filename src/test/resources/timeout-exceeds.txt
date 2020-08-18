@@ -1,0 +1,22 @@
+MongoDB shell version v4.4.0
+
+connecting to: mongodb://127.0.0.1:27017/?compressors=disabled&gssapiServiceName=mongodb
+
+Implicit session: session { "id" : UUID("dd574fc5-528c-437b-8960-62859bc5c247") }
+
+MongoDB server version: 4.4.0
+
+{
+    "operationTime" : Timestamp(1597732974, 1),
+    "ok" : 0,
+    "errmsg" : "operation exceeded time limit",
+    "code" : 50,
+    "codeName" : "MaxTimeMSExpired",
+    "$clusterTime" : {
+        "clusterTime" : Timestamp(1597732974, 1),
+        "signature" : {
+            "hash" : BinData(0,"AAAAAAAAAAAAAAAAAAAAAAAAAAA="),
+            "keyId" : NumberLong(0)
+        }
+    }
+}

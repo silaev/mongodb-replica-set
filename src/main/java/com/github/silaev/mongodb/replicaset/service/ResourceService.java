@@ -3,5 +3,7 @@ package com.github.silaev.mongodb.replicaset.service;
 import java.io.InputStream;
 
 public interface ResourceService {
-    InputStream getResourceIO(String fileName);
+    InputStream getResourceIO(final String fileName);
+
+    String getString(final InputStream io);
 }

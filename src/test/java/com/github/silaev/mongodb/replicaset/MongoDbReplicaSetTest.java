@@ -6,6 +6,8 @@ import com.github.silaev.mongodb.replicaset.exception.IncorrectUserInputExceptio
 import com.github.silaev.mongodb.replicaset.exception.MongoNodeInitializationException;
 import com.github.silaev.mongodb.replicaset.model.MongoNode;
 import com.github.silaev.mongodb.replicaset.model.MongoRsStatus;
+import com.github.silaev.mongodb.replicaset.service.ResourceService;
+import com.github.silaev.mongodb.replicaset.service.impl.ResourceServiceImpl;
 import lombok.val;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,9 +37,9 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class MongoDbReplicaSetTest {
     private static final int CONTAINER_EXIT_CODE_ERROR = -1;
+    private final ResourceService resourceService = new ResourceServiceImpl();
     @Mock
     StringToMongoRsStatusConverter converter;
-
     private MongoDbReplicaSet replicaSet;
 
     @BeforeEach
@@ -172,5 +174,28 @@ class MongoDbReplicaSetTest {
         assertThrows(IllegalStateException.class, executableConnectNodeToNetwork);
         assertThrows(IllegalStateException.class, executableDisconnectNodeFromNetwork);
         assertThrows(IllegalStateException.class, executableConnectNodeToNetworkWithReconfiguration);
+    }
+
+    @Test
+    void shouldNotCheckMongoNodeExitCodeAndStatus() {
+        //GIVEN
+        //replicaSet
+
+        val command = "command";
+        val execResult = mock(Container.ExecResult.class);
+        when(execResult.getExitCode())
+            .thenReturn(MongoDbReplicaSet.CONTAINER_EXIT_CODE_OK);
+        when(execResult.getStdout()).thenReturn(
+            resourceService.getString(
+                resourceService.getResourceIO("timeout-exceeds.txt")
+            )
+        );
+
+        //WHEN
+        Executable executable =
+            () -> replicaSet.checkMongoNodeExitCodeAndStatus(execResult, command);
+
+        //THEN
+        assertThrows(MongoNodeInitializationException.class, executable);
     }
 }
