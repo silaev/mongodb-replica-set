@@ -87,7 +87,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     public static final Comparator<MongoSocketAddress> COMPARATOR_MAPPED_PORT = Comparator.comparing(MongoSocketAddress::getMappedPort);
     static final String STATUS_COMMAND = "rs.status()";
     private static final String DEAD_LETTER_DB_NAME = "dead_letter";
-    private static final int CONTAINER_EXIT_CODE_OK = 0;
+    static final int CONTAINER_EXIT_CODE_OK = 0;
     private static final String CLASS_NAME = MongoDbReplicaSet.class.getCanonicalName();
     private static final String LOCALHOST = "localhost";
     private static final String DOCKER_HOST_WORKAROUND = "dockerhost";
@@ -486,11 +486,19 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     private GenericContainer findMasterElected(
         final GenericContainer mongoContainer
     ) {
+        log.debug("Waiting for a single master node up to {} attempts", getAwaitNodeInitAttempts());
         val execResultMasterAddress = execMongoDbCommandInContainer(
             mongoContainer,
-            buildJsIfStatement(
-                "rs.status().ok==1",
-                "rs.status().members.find(o => o.state == 1).name"
+            String.format(
+                "var attempt = 0; " +
+                    "while (attempt <= %d) { " +
+                    "attempt++; " +
+                    "if (%s rs.status().members.filter(o => o.state == 1).length === 1) " +
+                    "{ rs.status().members.find(o => o.state == 1).name; break; }}; " +
+                    "if(attempt > %d) {quit(1)};",
+                getAwaitNodeInitAttempts(),
+                RS_STATUS_MEMBERS_DEFINED_CONDITION,
+                getAwaitNodeInitAttempts()
             )
         );
         checkMongoNodeExitCode(execResultMasterAddress, "finding a master node");
@@ -1195,7 +1203,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     public void reconfigureReplSetToDefaults() {
         verifyWorkingNodeStoreIsNotEmpty();
         val replicaSetReConfig = getReplicaSetReConfigUnsetSlaveDelay();
-        log.debug("Reconfiguring a node replica set as per: {}", replicaSetReConfig);
+        log.debug("Reconfiguring a replica set as per: {}", replicaSetReConfig);
         val execResult = execMongoDbCommandInContainer(
             findMasterElected(workingNodeStore.values().iterator().next()),
             replicaSetReConfig
@@ -1521,7 +1529,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             String.format(
                 RS_STATUS_MEMBERS_DEFINED_CONDITION +
                     "rs.status().members.find(o => o.state == 8) != undefined && " +
-                    "rs.status().members.find(o => o.state == 8).length == %d",
+                    "rs.status().members.filter(o => o.state == 8).length != %d",
                 nodeNumber
             ),
             getAwaitNodeInitAttempts(),

@@ -21,12 +21,12 @@ class StringToMongoRsStatusConverterTest {
         new YmlConverterImpl(),
         new VersionConverter()
     );
-    private ResourceService resourceService = new ResourceServiceImpl();
+    private final ResourceService resourceService = new ResourceServiceImpl();
 
     @Test
     void shouldConvert() {
         // GIVEN
-        val rsStatus = getString(
+        val rsStatus = resourceService.getString(
             resourceService.getResourceIO("rs-status.txt")
         );
 
@@ -43,16 +43,5 @@ class StringToMongoRsStatusConverterTest {
         assertEquals(Long.valueOf(1), membersIndex.get(ReplicaSetMemberState.PRIMARY));
         assertEquals(Long.valueOf(3), membersIndex.get(ReplicaSetMemberState.SECONDARY));
         assertEquals(Long.valueOf(1), membersIndex.get(ReplicaSetMemberState.ARBITER));
-    }
-
-    @SneakyThrows
-    private String getString(InputStream io) {
-        ByteArrayOutputStream result = new ByteArrayOutputStream();
-        byte[] buffer = new byte[1024];
-        int length;
-        while ((length = io.read(buffer)) != -1) {
-            result.write(buffer, 0, length);
-        }
-        return result.toString(StandardCharsets.UTF_8.name());
     }
 }

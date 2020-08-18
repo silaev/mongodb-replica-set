@@ -1,12 +1,12 @@
 package com.github.silaev.mongodb.replicaset.integration.api.faulttolerance;
 
 import com.github.silaev.mongodb.replicaset.MongoDbReplicaSet;
+import com.github.silaev.mongodb.replicaset.core.EnabledIfSystemPropertyExistsAndMatches;
 import com.github.silaev.mongodb.replicaset.core.IntegrationTest;
 import com.github.silaev.mongodb.replicaset.exception.MongoNodeInitializationException;
 import com.github.silaev.mongodb.replicaset.model.ReplicaSetMemberState;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.hamcrest.CoreMatchers.hasItems;
@@ -21,12 +21,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * @author Konstantin Silaev on 5/8/2020
  */
 @IntegrationTest
-@Disabled
 @Slf4j
+@EnabledIfSystemPropertyExistsAndMatches(
+    named = "mongoReplicaSetProperties.mongoDockerImageName",
+    matches = "^mongo:4.*"
+)
 class MongoDbDelayedMembersITTest {
     @Test
-    void shouldTestDelayedMembersBecomingSecondary() throws Throwable {
-        //GIVEN
+    void shouldTestDelayedMembersBecomingSecondary() {
         try (
             final MongoDbReplicaSet mongoReplicaSet = MongoDbReplicaSet.builder()
                 .replicaSetNumber(4)
@@ -56,7 +58,7 @@ class MongoDbDelayedMembersITTest {
     }
 
     @Test
-    void shouldTestDelayedMemberCannotBecomeSecondary() throws Throwable {
+    void shouldTestDelayedMemberCannotBecomeSecondary() {
         //GIVEN
         try (
             final MongoDbReplicaSet mongoReplicaSet = MongoDbReplicaSet.builder()
@@ -74,6 +76,8 @@ class MongoDbDelayedMembersITTest {
             val masterNode = mongoReplicaSet.getMasterMongoNode(members);
 
             mongoReplicaSet.disconnectNodeFromNetwork(masterNode);
+            mongoReplicaSet.waitForMongoNodesDown(1);
+            mongoReplicaSet.waitForMasterReelection(masterNode);
             assertThrows(MongoNodeInitializationException.class, mongoReplicaSet::reconfigureReplSetToDefaults);
         }
     }
