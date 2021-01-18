@@ -1,47 +1,37 @@
 package com.github.silaev.mongodb.replicaset.converter.impl;
 
-import com.github.silaev.mongodb.replicaset.model.MongoNode;
-import com.github.silaev.mongodb.replicaset.model.ReplicaSetMemberState;
 import com.github.silaev.mongodb.replicaset.service.ResourceService;
 import com.github.silaev.mongodb.replicaset.service.impl.ResourceServiceImpl;
-import lombok.SneakyThrows;
 import lombok.val;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.stream.Collectors;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class StringToMongoRsStatusConverterTest {
-    private StringToMongoRsStatusConverter converter = new StringToMongoRsStatusConverter(
+    private final StringToMongoRsStatusConverter converter = new StringToMongoRsStatusConverter(
         new YmlConverterImpl(),
         new VersionConverter()
     );
     private final ResourceService resourceService = new ResourceServiceImpl();
 
-    @Test
-    void shouldConvert() {
+    @ParameterizedTest(name = "shouldConvert: {index}, fileName: {0}")
+    @CsvSource(value = {
+        "rs-status.txt, 5",
+        "rs-status-framed.txt, 3",
+        "rs-status-plain.txt, 0"
+    })
+    void shouldConvert(final String fileName, final int membersNumber) {
         // GIVEN
-        val rsStatus = resourceService.getString(
-            resourceService.getResourceIO("rs-status.txt")
-        );
+        val rsStatus = resourceService.getString(resourceService.getResourceIO(fileName));
 
         // THEN
         val mongoRsStatusActual = converter.convert(rsStatus);
 
         // WHEN
-        assertNotNull(mongoRsStatusActual);
-        assertEquals(Integer.valueOf(1), mongoRsStatusActual.getStatus());
+        assertThat(mongoRsStatusActual).isNotNull();
+        assertThat(mongoRsStatusActual.getStatus()).isEqualTo(1);
         val members = mongoRsStatusActual.getMembers();
-        assertEquals(5, members.size());
-        val membersIndex = members.stream()
-            .collect(Collectors.groupingBy(MongoNode::getState, Collectors.counting()));
-        assertEquals(Long.valueOf(1), membersIndex.get(ReplicaSetMemberState.PRIMARY));
-        assertEquals(Long.valueOf(3), membersIndex.get(ReplicaSetMemberState.SECONDARY));
-        assertEquals(Long.valueOf(1), membersIndex.get(ReplicaSetMemberState.ARBITER));
+        assertThat(members.size()).isEqualTo(membersNumber);
     }
 }

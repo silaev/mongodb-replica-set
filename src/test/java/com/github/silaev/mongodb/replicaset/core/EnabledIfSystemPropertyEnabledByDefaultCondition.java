@@ -21,7 +21,7 @@ import static org.junit.platform.commons.util.AnnotationUtils.findAnnotation;
  *
  * @see EnabledIfSystemProperty
  */
-class EnabledIfSystemPropertyExistsAndMatchesCondition implements ExecutionCondition {
+class EnabledIfSystemPropertyEnabledByDefaultCondition implements ExecutionCondition {
 
     private static final ConditionEvaluationResult ENABLED_BY_DEFAULT = enabled(
         "@EnabledIfSystemProperty is not present");

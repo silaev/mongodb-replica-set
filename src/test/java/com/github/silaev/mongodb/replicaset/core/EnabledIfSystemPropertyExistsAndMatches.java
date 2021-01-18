@@ -20,7 +20,7 @@ import java.lang.annotation.Target;
 @Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-@ExtendWith(EnabledIfSystemPropertyExistsAndMatchesCondition.class)
+@ExtendWith(EnabledIfSystemPropertyEnabledByDefaultCondition.class)
 public @interface EnabledIfSystemPropertyExistsAndMatches {
 
     /**

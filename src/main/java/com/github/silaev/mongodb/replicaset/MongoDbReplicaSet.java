@@ -107,6 +107,8 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         " ', codeName: ' + rs.status().codeName);";
     private static final String MONGODB_DATABASE_NAME_DEFAULT = "test";
     private static final Pattern OK_PATTERN = Pattern.compile("(?i).*\"ok\" : 1.*");
+    private static final int RECONFIG_MAX_TIME_MS = 5000;
+    public static final String SHOPIFY_TOXIPROXY_IMAGE = "shopify/toxiproxy:2.1.0";
     private final StringToMongoRsStatusConverter statusConverter;
     private final MongoNodeToMongoSocketAddressConverter socketAddressConverter;
     private final ApplicationProperties properties;
@@ -862,7 +864,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     }
 
     private @NonNull ToxiproxyContainer getAndStartToxiproxyContainer() {
-        final ToxiproxyContainer toxiproxy = new ToxiproxyContainer()
+        final ToxiproxyContainer toxiproxy = new ToxiproxyContainer(SHOPIFY_TOXIPROXY_IMAGE)
             .withNetwork(network);
         toxiproxy.start();
         return toxiproxy;
@@ -1279,7 +1281,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             ).collect(Collectors.joining(
                 ";\n",
                 "cfg = rs.conf();\n",
-                ";\nrs.reconfig(cfg, {force : true, maxTimeMS: 5000})")
+                String.format(";\nrs.reconfig(cfg, {force : true, maxTimeMS: %d})", RECONFIG_MAX_TIME_MS))
             );
     }
 
@@ -1295,7 +1297,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             .collect(Collectors.joining(
                 ",",
                 "cfg = rs.conf();\ncfg.members = [",
-                "];\nrs.reconfig(cfg, {force : true, maxTimeMS: 5000})")
+                String.format("];\nrs.reconfig(cfg, {force : true, maxTimeMS: %d})", RECONFIG_MAX_TIME_MS))
             );
     }
 
@@ -1311,7 +1313,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             .collect(Collectors.joining(
                 ",",
                 "cfg = rs.conf();\ncfg.members = [",
-                "];\nrs.reconfig(cfg, {force : true, maxTimeMS: 5000})")
+                String.format("];\nrs.reconfig(cfg, {force : true, maxTimeMS: %d})", RECONFIG_MAX_TIME_MS))
             );
     }
 

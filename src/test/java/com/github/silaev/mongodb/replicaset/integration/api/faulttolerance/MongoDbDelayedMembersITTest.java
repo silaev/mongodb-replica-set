@@ -1,13 +1,13 @@
 package com.github.silaev.mongodb.replicaset.integration.api.faulttolerance;
 
 import com.github.silaev.mongodb.replicaset.MongoDbReplicaSet;
-import com.github.silaev.mongodb.replicaset.core.EnabledIfSystemPropertyExistsAndMatches;
 import com.github.silaev.mongodb.replicaset.core.IntegrationTest;
 import com.github.silaev.mongodb.replicaset.exception.MongoNodeInitializationException;
 import com.github.silaev.mongodb.replicaset.model.ReplicaSetMemberState;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
 import static org.hamcrest.CoreMatchers.hasItems;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -22,12 +22,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 @IntegrationTest
 @Slf4j
-@EnabledIfSystemPropertyExistsAndMatches(
-    named = "mongoReplicaSetProperties.mongoDockerImageName",
-    matches = "^mongo:4.*"
-)
 class MongoDbDelayedMembersITTest {
     @Test
+    @EnabledIfSystemProperty(
+        named = "mongoReplicaSetProperties.mongoDockerImageName",
+        matches = "^mongo:4.*"
+    )
     void shouldTestDelayedMembersBecomingSecondary() {
         try (
             final MongoDbReplicaSet mongoReplicaSet = MongoDbReplicaSet.builder()
@@ -41,8 +41,6 @@ class MongoDbDelayedMembersITTest {
 
             val mongoRsUrlPrimary = mongoReplicaSet.getReplicaSetUrl();
             assertNotNull(mongoRsUrlPrimary);
-            val members = mongoReplicaSet.getMongoRsStatus().getMembers();
-            val masterNode = mongoReplicaSet.getMasterMongoNode(members);
             mongoReplicaSet.reconfigureReplSetToDefaults();
 
             assertThat(
@@ -58,8 +56,11 @@ class MongoDbDelayedMembersITTest {
     }
 
     @Test
+    @EnabledIfSystemProperty(
+        named = "mongoReplicaSetProperties.mongoDockerImageName",
+        matches = "^mongo:4.4.*"
+    )
     void shouldTestDelayedMemberCannotBecomeSecondary() {
-        //GIVEN
         try (
             final MongoDbReplicaSet mongoReplicaSet = MongoDbReplicaSet.builder()
                 .replicaSetNumber(4)
