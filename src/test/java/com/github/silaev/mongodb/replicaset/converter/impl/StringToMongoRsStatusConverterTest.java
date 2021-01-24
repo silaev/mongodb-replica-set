@@ -17,11 +17,12 @@ class StringToMongoRsStatusConverterTest {
 
     @ParameterizedTest(name = "shouldConvert: {index}, fileName: {0}")
     @CsvSource(value = {
-        "rs-status.txt, 5",
-        "rs-status-framed.txt, 3",
-        "rs-status-plain.txt, 0"
+        "shell-output/rs-status.txt, 1, 5",
+        "shell-output/rs-status-framed.txt, 1, 3",
+        "shell-output/rs-status-plain.txt, 1, 0",
+        "shell-output/timeout-exceeds.txt, 0, 0"
     })
-    void shouldConvert(final String fileName, final int membersNumber) {
+    void shouldConvert(final String fileName, final int status, final int membersNumber) {
         // GIVEN
         val rsStatus = resourceService.getString(resourceService.getResourceIO(fileName));
 
@@ -30,7 +31,7 @@ class StringToMongoRsStatusConverterTest {
 
         // WHEN
         assertThat(mongoRsStatusActual).isNotNull();
-        assertThat(mongoRsStatusActual.getStatus()).isEqualTo(1);
+        assertThat(mongoRsStatusActual.getStatus()).isEqualTo(status);
         val members = mongoRsStatusActual.getMembers();
         assertThat(members.size()).isEqualTo(membersNumber);
     }

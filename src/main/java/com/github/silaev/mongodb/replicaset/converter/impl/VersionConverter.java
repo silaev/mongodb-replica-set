@@ -12,6 +12,9 @@ import lombok.val;
 public class VersionConverter implements Converter<String, MongoDbVersion> {
     @Override
     public MongoDbVersion convert(String source) {
+        if (source == null) {
+            return null;
+        }
         val strings = source.split("\\.");
         if (strings.length < 2) {
             throw new IllegalArgumentException(

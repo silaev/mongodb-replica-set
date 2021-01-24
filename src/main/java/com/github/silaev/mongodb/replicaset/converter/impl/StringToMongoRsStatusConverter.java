@@ -20,6 +20,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -29,11 +30,11 @@ import java.util.stream.Collectors;
  */
 @AllArgsConstructor
 @Slf4j
-public class StringToMongoRsStatusConverter
-    implements Converter<String, MongoRsStatus> {
+public class StringToMongoRsStatusConverter implements Converter<String, MongoRsStatus> {
 
     private static final String MONGO_VERSION_MARKER = "MongoDB server version:";
-    public static final String OK = "\"ok\" : ";
+    private static final String OK = "\"ok\" : ";
+    private static final Pattern OK_PATTERN = Pattern.compile("(?i).*" + OK);
 
     private final YmlConverter yamlConverter;
     private final VersionConverter versionConverter;
@@ -47,7 +48,7 @@ public class StringToMongoRsStatusConverter
     @Override
     public MongoRsStatus convert(String source) {
         val io = new ByteArrayInputStream(
-            formatToJsonString(source).getBytes(StandardCharsets.UTF_8)
+            extractPayloadFromMongoDBShell(source, true).getBytes(StandardCharsets.UTF_8)
         );
         MongoRsStatusMutable mongoRsStatusMutable;
         try {
@@ -95,11 +96,11 @@ public class StringToMongoRsStatusConverter
         );
     }
 
-    public String formatToJsonString(final String mongoDbReply) {
+    public String extractPayloadFromMongoDBShell(final String mongoDbReply, final boolean formatJson) {
         String version = null;
-        String[] lines = mongoDbReply.replaceAll("\t", "").split("\n");
+        val lines = mongoDbReply.replace("\t", "").split("\n");
         int idx = 0;
-        final int length = lines.length;
+        val length = lines.length;
         while (idx < length) {
             String currentLine = lines[idx];
             if (!currentLine.isEmpty() && currentLine.contains(MONGO_VERSION_MARKER)) {
@@ -113,13 +114,19 @@ public class StringToMongoRsStatusConverter
         for (int i = idx; i < length; i++) {
             sb.append(lines[i].replaceAll("\\s\\s", ""));
         }
-        final int indexOfOk = sb.indexOf(OK);
-        if (indexOfOk > 0) {
-            val start = indexOfOk + OK.length();
-            String status = sb.substring(start, start + 1);
-            sb.delete(indexOfOk, sb.length());
-            val strExtra = String.format("\"version\" : \"%s\",", version) + String.format("\"status\" : \"%s\"}", status);
-            sb.append(strExtra);
+        if (formatJson) {
+            val matcher = OK_PATTERN.matcher(sb);
+            val endIndexOk = matcher.find() ? matcher.end() : 0;
+            if (endIndexOk > 0) {
+                val status = sb.substring(endIndexOk, endIndexOk + 1);
+                sb.delete(endIndexOk - OK.length(), sb.length());
+                val strExtra = String.format("\"version\" : \"%s\",", version) + String.format("\"status\" : \"%s\"}", status);
+                sb.append(strExtra);
+            } else {
+                throw new IllegalArgumentException(
+                    String.format("Cannot find a pattern %s in mongoDbReply: %n%s", OK_PATTERN.toString(), mongoDbReply)
+                );
+            }
         }
         return sb.toString();
     }

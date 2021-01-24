@@ -39,7 +39,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -86,8 +85,9 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     public static final int MAX_VOTING_MEMBERS = 7;
     public static final Comparator<MongoSocketAddress> COMPARATOR_MAPPED_PORT = Comparator.comparing(MongoSocketAddress::getMappedPort);
     static final String STATUS_COMMAND = "rs.status()";
-    private static final String DEAD_LETTER_DB_NAME = "dead_letter";
     static final int CONTAINER_EXIT_CODE_OK = 0;
+    private static final String SHOPIFY_TOXIPROXY_IMAGE = "shopify/toxiproxy:2.1.0";
+    private static final String DEAD_LETTER_DB_NAME = "dead_letter";
     private static final String CLASS_NAME = MongoDbReplicaSet.class.getCanonicalName();
     private static final String LOCALHOST = "localhost";
     private static final String DOCKER_HOST_WORKAROUND = "dockerhost";
@@ -106,9 +106,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     private static final String RS_EXCEPTION = "throw new Error('Replica set status is not ok, errmsg: ' + rs.status().errmsg +" +
         " ', codeName: ' + rs.status().codeName);";
     private static final String MONGODB_DATABASE_NAME_DEFAULT = "test";
-    private static final Pattern OK_PATTERN = Pattern.compile("(?i).*\"ok\" : 1.*");
     private static final int RECONFIG_MAX_TIME_MS = 5000;
-    public static final String SHOPIFY_TOXIPROXY_IMAGE = "shopify/toxiproxy:2.1.0";
     private final StringToMongoRsStatusConverter statusConverter;
     private final MongoNodeToMongoSocketAddressConverter socketAddressConverter;
     private final ApplicationProperties properties;
@@ -506,7 +504,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         checkMongoNodeExitCode(execResultMasterAddress, "finding a master node");
         final String stdout = execResultMasterAddress.getStdout();
         final MongoSocketAddress mongoSocketAddress =
-            Optional.ofNullable(statusConverter.formatToJsonString(stdout))
+            Optional.ofNullable(statusConverter.extractPayloadFromMongoDBShell(stdout, false))
                 .map(StringUtils::getArrayByDelimiter)
                 .filter(a -> a.length == 2)
                 .map(a -> {
@@ -721,7 +719,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         Objects.requireNonNull(execResult);
         val stdout = execResult.getStdout();
         Objects.requireNonNull(stdout);
-        if (execResult.getExitCode() != CONTAINER_EXIT_CODE_OK || !OK_PATTERN.matcher(stdout).find()) {
+        if (execResult.getExitCode() != CONTAINER_EXIT_CODE_OK || statusConverter.convert(stdout).getStatus() != 1) {
             val errorMessage = String.format(
                 "Error occurred while %s: %s",
                 commandDescription,
