@@ -86,7 +86,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     public static final Comparator<MongoSocketAddress> COMPARATOR_MAPPED_PORT = Comparator.comparing(MongoSocketAddress::getMappedPort);
     static final String STATUS_COMMAND = "rs.status()";
     static final int CONTAINER_EXIT_CODE_OK = 0;
-    private static final String SHOPIFY_TOXIPROXY_IMAGE = "shopify/toxiproxy:2.1.0";
+    private static final String SHOPIFY_TOXIPROXY_IMAGE = "shopify/toxiproxy:2.1.3";
     private static final String DEAD_LETTER_DB_NAME = "dead_letter";
     private static final String CLASS_NAME = MongoDbReplicaSet.class.getCanonicalName();
     private static final String LOCALHOST = "localhost";
