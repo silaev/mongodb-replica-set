@@ -31,6 +31,7 @@ after_success:
     - ./scripts/codecov.sh
 
 script:
+  - echo "$DOCKER_PASSWORD" | docker login -u "s256" --password-stdin;
   - echo "*** build and run sequential integration tests (MongoDB $MONGO_VERSION) against a host";
     ./gradlew clean build --no-daemon -DmongoReplicaSetProperties.mongoDockerImageName=mongo:${MONGO_VERSION};
   - echo "*** run integration tests (MongoDB $MONGO_VERSION) in docker-only mode";
