@@ -110,7 +110,7 @@ public class StringToMongoRsStatusConverter implements Converter<String, MongoRs
         val lines = mongoDbReply.replace("\t", "").split("\n");
         int idx = 0;
         val length = lines.length;
-        var isVersionLineFound = false;
+        boolean isVersionLineFound = false;
         while (idx < length) {
             String currentLine = lines[idx];
             if (!currentLine.isEmpty() && currentLine.contains(MONGO_VERSION_MARKER)) {

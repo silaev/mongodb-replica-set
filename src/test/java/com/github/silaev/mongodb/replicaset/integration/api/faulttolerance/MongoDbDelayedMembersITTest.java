@@ -58,7 +58,7 @@ class MongoDbDelayedMembersITTest {
     @Test
     @EnabledIfSystemProperty(
         named = "mongoReplicaSetProperties.mongoDockerImageName",
-        matches = "^mongo:4.4.*"
+        matches = "^mongo:4.4.3"
     )
     void shouldTestDelayedMemberCannotBecomeSecondary() {
         try (
