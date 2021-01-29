@@ -12,6 +12,7 @@ import lombok.AllArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
+import lombok.var;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -48,7 +49,7 @@ public class StringToMongoRsStatusConverter implements Converter<String, MongoRs
     @Override
     public MongoRsStatus convert(String source) {
         val io = new ByteArrayInputStream(
-            extractPayloadFromMongoDBShell(source, true).getBytes(StandardCharsets.UTF_8)
+            extractJsonPayloadFromMongoDBShell(source).getBytes(StandardCharsets.UTF_8)
         );
         MongoRsStatusMutable mongoRsStatusMutable;
         try {
@@ -96,20 +97,37 @@ public class StringToMongoRsStatusConverter implements Converter<String, MongoRs
         );
     }
 
-    public String extractPayloadFromMongoDBShell(final String mongoDbReply, final boolean formatJson) {
+    public String extractRawPayloadFromMongoDBShell(final String mongoDbReply) {
+        return extractRawPayloadFromMongoDBShell(mongoDbReply, false);
+    }
+
+    private String extractJsonPayloadFromMongoDBShell(final String mongoDbReply) {
+        return extractRawPayloadFromMongoDBShell(mongoDbReply, true);
+    }
+
+    private String extractRawPayloadFromMongoDBShell(final String mongoDbReply, final boolean formatJson) {
         String version = null;
         val lines = mongoDbReply.replace("\t", "").split("\n");
         int idx = 0;
         val length = lines.length;
+        var isVersionLineFound = false;
         while (idx < length) {
             String currentLine = lines[idx];
             if (!currentLine.isEmpty() && currentLine.contains(MONGO_VERSION_MARKER)) {
                 version = currentLine.substring(currentLine.indexOf(':') + 1).trim();
                 idx++;
+                isVersionLineFound = true;
                 break;
             }
             idx++;
         }
+
+        if (!isVersionLineFound) {
+            throw new IllegalArgumentException(
+                String.format("Cannot find a substring %s in mongoDbReply: %n%s", MONGO_VERSION_MARKER, mongoDbReply)
+            );
+        }
+
         val sb = new StringBuilder();
         for (int i = idx; i < length; i++) {
             sb.append(lines[i].replaceAll("\\s\\s", ""));

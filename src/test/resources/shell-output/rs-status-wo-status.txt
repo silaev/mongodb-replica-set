@@ -1,0 +1,177 @@
+MongoDB shell version v4.2.0
+
+connecting to: mongodb://127.0.0.1:27017/?compressors=disabled&gssapiServiceName=mongodb
+
+Implicit session: session { "id" : UUID("2def7590-ba68-4db3-9415-508467e48d81") }
+
+MongoDB server version: 4.2.0
+
+{
+    "set" : "docker-rs",
+    "date" : ISODate("2019-08-20T10:55:31.809Z"),
+    "myState" : 1,
+    "term" : NumberLong(1),
+    "syncingTo" : "",
+    "syncSourceHost" : "",
+    "syncSourceId" : -1,
+    "heartbeatIntervalMillis" : NumberLong(2000),
+    "optimes" : {
+            "lastCommittedOpTime" : {
+                    "ts" : Timestamp(1566298529, 1),
+                    "t" : NumberLong(1)
+            },
+            "lastCommittedWallTime" : ISODate("2019-08-20T10:55:29.393Z"),
+            "readConcernMajorityOpTime" : {
+                    "ts" : Timestamp(1566298529, 1),
+                    "t" : NumberLong(1)
+            },
+            "readConcernMajorityWallTime" : ISODate("2019-08-20T10:55:29.393Z"),
+            "appliedOpTime" : {
+                    "ts" : Timestamp(1566298529, 1),
+                    "t" : NumberLong(1)
+            },
+            "durableOpTime" : {
+                    "ts" : Timestamp(1566298529, 1),
+                    "t" : NumberLong(1)
+            },
+            "lastAppliedWallTime" : ISODate("2019-08-20T10:55:29.393Z"),
+            "lastDurableWallTime" : ISODate("2019-08-20T10:55:29.393Z")
+    },
+    "lastStableRecoveryTimestamp" : Timestamp(1566298525, 2),
+    "lastStableCheckpointTimestamp" : Timestamp(1566298525, 2),
+    "members" : [
+            {
+                    "_id" : 0,
+                    "name" : "dockerhost:33570",
+                    "ip" : "192.168.208.2",
+                    "health" : 1,
+                    "state" : 2,
+                    "stateStr" : "SECONDARY",
+                    "uptime" : 17,
+                    "optime" : {
+                            "ts" : Timestamp(1566298529, 1),
+                            "t" : NumberLong(1)
+                    },
+                    "optimeDurable" : {
+                            "ts" : Timestamp(1566298529, 1),
+                            "t" : NumberLong(1)
+                    },
+                    "optimeDate" : ISODate("2019-08-20T10:55:29Z"),
+                    "optimeDurableDate" : ISODate("2019-08-20T10:55:29Z"),
+                    "lastHeartbeat" : ISODate("2019-08-20T10:55:31.405Z"),
+                    "lastHeartbeatRecv" : ISODate("2019-08-20T10:55:31.538Z"),
+                    "pingMs" : NumberLong(2),
+                    "lastHeartbeatMessage" : "",
+                    "syncingTo" : "",
+                    "syncSourceHost" : "",
+                    "syncSourceId" : -1,
+                    "infoMessage" : "",
+                    "configVersion" : 2
+            },
+            {
+                    "_id" : 1,
+                    "name" : "dockerhost:33571",
+                    "ip" : "192.168.208.2",
+                    "health" : 1,
+                    "state" : 2,
+                    "stateStr" : "SECONDARY",
+                    "uptime" : 17,
+                    "optime" : {
+                            "ts" : Timestamp(1566298529, 1),
+                            "t" : NumberLong(1)
+                    },
+                    "optimeDurable" : {
+                            "ts" : Timestamp(1566298529, 1),
+                            "t" : NumberLong(1)
+                    },
+                    "optimeDate" : ISODate("2019-08-20T10:55:29Z"),
+                    "optimeDurableDate" : ISODate("2019-08-20T10:55:29Z"),
+                    "lastHeartbeat" : ISODate("2019-08-20T10:55:31.405Z"),
+                    "lastHeartbeatRecv" : ISODate("2019-08-20T10:55:31.528Z"),
+                    "pingMs" : NumberLong(5),
+                    "lastHeartbeatMessage" : "",
+                    "syncingTo" : "",
+                    "syncSourceHost" : "",
+                    "syncSourceId" : -1,
+                    "infoMessage" : "",
+                    "configVersion" : 2
+            },
+            {
+                    "_id" : 2,
+                    "name" : "dockerhost:33572",
+                    "ip" : "192.168.208.2",
+                    "health" : 1,
+                    "state" : 2,
+                    "stateStr" : "SECONDARY",
+                    "uptime" : 17,
+                    "optime" : {
+                            "ts" : Timestamp(1566298529, 1),
+                            "t" : NumberLong(1)
+                    },
+                    "optimeDurable" : {
+                            "ts" : Timestamp(1566298529, 1),
+                            "t" : NumberLong(1)
+                    },
+                    "optimeDate" : ISODate("2019-08-20T10:55:29Z"),
+                    "optimeDurableDate" : ISODate("2019-08-20T10:55:29Z"),
+                    "lastHeartbeat" : ISODate("2019-08-20T10:55:31.453Z"),
+                    "lastHeartbeatRecv" : ISODate("2019-08-20T10:55:31.525Z"),
+                    "pingMs" : NumberLong(5),
+                    "lastHeartbeatMessage" : "",
+                    "syncingTo" : "",
+                    "syncSourceHost" : "",
+                    "syncSourceId" : -1,
+                    "infoMessage" : "",
+                    "configVersion" : 2
+            },
+            {
+                    "_id" : 3,
+                    "name" : "dockerhost:33573",
+                    "ip" : "192.168.208.2",
+                    "health" : 1,
+                    "state" : 1,
+                    "stateStr" : "PRIMARY",
+                    "uptime" : 19,
+                    "optime" : {
+                            "ts" : Timestamp(1566298529, 1),
+                            "t" : NumberLong(1)
+                    },
+                    "optimeDate" : ISODate("2019-08-20T10:55:29Z"),
+                    "syncingTo" : "",
+                    "syncSourceHost" : "",
+                    "syncSourceId" : -1,
+                    "infoMessage" : "could not find member to sync from",
+                    "electionTime" : Timestamp(1566298524, 1),
+                    "electionDate" : ISODate("2019-08-20T10:55:24Z"),
+                    "configVersion" : 2,
+                    "self" : true,
+                    "lastHeartbeatMessage" : ""
+            },
+            {
+                    "_id" : 4,
+                    "name" : "dockerhost:33574",
+                    "ip" : "192.168.208.2",
+                    "health" : 1,
+			        "state" : 7,
+			        "stateStr" : "ARBITER",
+                    "uptime" : 2,
+                    "lastHeartbeat" : ISODate("2019-08-20T10:55:31.418Z"),
+                    "lastHeartbeatRecv" : ISODate("2019-08-20T10:55:31.593Z"),
+                    "pingMs" : NumberLong(10),
+                    "lastHeartbeatMessage" : "",
+                    "syncingTo" : "",
+                    "syncSourceHost" : "",
+                    "syncSourceId" : -1,
+                    "infoMessage" : "",
+                    "configVersion" : 2
+            }
+    ],
+    "$clusterTime" : {
+            "clusterTime" : Timestamp(1566298529, 1),
+            "signature" : {
+                    "hash" : BinData(0,"AAAAAAAAAAAAAAAAAAAAAAAAAAA="),
+                    "keyId" : NumberLong(0)
+            }
+    },
+    "operationTime" : Timestamp(1566298529, 1)
+}

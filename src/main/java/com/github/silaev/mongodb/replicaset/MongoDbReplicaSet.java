@@ -502,9 +502,9 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             )
         );
         checkMongoNodeExitCode(execResultMasterAddress, "finding a master node");
-        final String stdout = execResultMasterAddress.getStdout();
+        val stdout = execResultMasterAddress.getStdout();
         final MongoSocketAddress mongoSocketAddress =
-            Optional.ofNullable(statusConverter.extractPayloadFromMongoDBShell(stdout, false))
+            Optional.ofNullable(statusConverter.extractRawPayloadFromMongoDBShell(stdout))
                 .map(StringUtils::getArrayByDelimiter)
                 .filter(a -> a.length == 2)
                 .map(a -> {

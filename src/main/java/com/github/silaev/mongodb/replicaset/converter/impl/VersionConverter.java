@@ -4,6 +4,8 @@ import com.github.silaev.mongodb.replicaset.converter.Converter;
 import com.github.silaev.mongodb.replicaset.model.MongoDbVersion;
 import lombok.val;
 
+import java.util.Objects;
+
 /**
  * Converts a string to an instance of MongoDbVersion following Semantic Versioning.
  *
@@ -12,8 +14,8 @@ import lombok.val;
 public class VersionConverter implements Converter<String, MongoDbVersion> {
     @Override
     public MongoDbVersion convert(String source) {
-        if (source == null) {
-            return null;
+        if (Objects.isNull(source)) {
+            throw new IllegalArgumentException("Version is not supposed to be null");
         }
         val strings = source.split("\\.");
         if (strings.length < 2) {
