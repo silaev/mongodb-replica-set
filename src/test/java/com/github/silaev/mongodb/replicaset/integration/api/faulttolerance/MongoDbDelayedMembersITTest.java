@@ -6,6 +6,7 @@ import com.github.silaev.mongodb.replicaset.exception.MongoNodeInitializationExc
 import com.github.silaev.mongodb.replicaset.model.ReplicaSetMemberState;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
@@ -56,10 +57,7 @@ class MongoDbDelayedMembersITTest {
     }
 
     @Test
-    @EnabledIfSystemProperty(
-        named = "mongoReplicaSetProperties.mongoDockerImageName",
-        matches = "^mongo:4.4.3"
-    )
+    @Disabled
     void shouldTestDelayedMemberCannotBecomeSecondary() {
         try (
             final MongoDbReplicaSet mongoReplicaSet = MongoDbReplicaSet.builder()
