@@ -48,6 +48,8 @@ jobs:
         fi
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
+      with:
+        verbose: true # optional (default = false)
       if: ${{ success() }}
     - name: Cleanup Gradle Cache
         # Remove some files from the Gradle cache, so they aren't cached by GitHub Actions.
