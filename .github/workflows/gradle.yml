@@ -35,7 +35,7 @@ jobs:
     - name: Build with Gradle agains host ${{ matrix.mongodb-version }}
       run: ./gradlew clean build --no-daemon -DmongoReplicaSetProperties.mongoDockerImageName=mongo:${{ matrix.mongodb-version }}
     - name: Build with Gradle in docker-only mode ${{ matrix.mongodb-version }}
-    - env:
+      env:
           MONGO_VERSION: ${{ matrix.mongodb-version }}
       run: |
         docker-compose -f docker-compose-it-test.yml up -d;
