@@ -21,7 +21,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 @ExtendWith(EnabledIfSystemPropertyEnabledByDefaultCondition.class)
-public @interface EnabledIfSystemPropertyExistsAndMatches {
+public @interface EnabledIfSystemPropertyEnabledByDefault {
 
     /**
      * The name of the JVM system property to retrieve.

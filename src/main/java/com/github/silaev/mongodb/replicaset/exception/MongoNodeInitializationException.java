@@ -8,4 +8,9 @@ public class MongoNodeInitializationException extends RuntimeException {
     public MongoNodeInitializationException(String errorMessage) {
         super(errorMessage);
     }
+
+    public MongoNodeInitializationException(String message, Throwable cause) {
+        super(message, cause);
+    }
+
 }

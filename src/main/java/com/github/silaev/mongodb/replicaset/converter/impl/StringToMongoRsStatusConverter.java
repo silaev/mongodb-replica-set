@@ -110,22 +110,14 @@ public class StringToMongoRsStatusConverter implements Converter<String, MongoRs
         val lines = mongoDbReply.replace("\t", "").split("\n");
         int idx = 0;
         val length = lines.length;
-        boolean isVersionLineFound = false;
         while (idx < length) {
             String currentLine = lines[idx];
             if (!currentLine.isEmpty() && currentLine.contains(MONGO_VERSION_MARKER)) {
                 version = currentLine.substring(currentLine.indexOf(':') + 1).trim();
                 idx++;
-                isVersionLineFound = true;
                 break;
             }
             idx++;
-        }
-
-        if (!isVersionLineFound) {
-            throw new IllegalArgumentException(
-                String.format("Cannot find a substring %s in mongoDbReply: %n%s", MONGO_VERSION_MARKER, mongoDbReply)
-            );
         }
 
         val sb = new StringBuilder();
@@ -140,10 +132,6 @@ public class StringToMongoRsStatusConverter implements Converter<String, MongoRs
                 sb.delete(endIndexOk - OK.length(), sb.length());
                 val strExtra = String.format("\"version\" : \"%s\",", version) + String.format("\"status\" : \"%s\"}", status);
                 sb.append(strExtra);
-            } else {
-                throw new IllegalArgumentException(
-                    String.format("Cannot find a pattern %s in mongoDbReply: %n%s", OK_PATTERN.toString(), mongoDbReply)
-                );
             }
         }
         return sb.toString();

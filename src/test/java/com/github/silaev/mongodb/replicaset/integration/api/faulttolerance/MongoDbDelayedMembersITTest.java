@@ -1,19 +1,17 @@
 package com.github.silaev.mongodb.replicaset.integration.api.faulttolerance;
 
 import com.github.silaev.mongodb.replicaset.MongoDbReplicaSet;
+import com.github.silaev.mongodb.replicaset.core.EnabledIfSystemPropertyEnabledByDefault;
 import com.github.silaev.mongodb.replicaset.core.IntegrationTest;
-import com.github.silaev.mongodb.replicaset.exception.MongoNodeInitializationException;
 import com.github.silaev.mongodb.replicaset.model.ReplicaSetMemberState;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
 import static org.hamcrest.CoreMatchers.hasItems;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Simulates a situation when a replica set with a delayed member
@@ -23,17 +21,16 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 @IntegrationTest
 @Slf4j
+@EnabledIfSystemPropertyEnabledByDefault(
+    named = "mongoReplicaSetProperties.mongoDockerImageName",
+    matches = "^mongo:4.*"
+)
 class MongoDbDelayedMembersITTest {
     @Test
-    @EnabledIfSystemProperty(
-        named = "mongoReplicaSetProperties.mongoDockerImageName",
-        matches = "^mongo:4.*"
-    )
     void shouldTestDelayedMembersBecomingSecondary() {
         try (
             final MongoDbReplicaSet mongoReplicaSet = MongoDbReplicaSet.builder()
                 .replicaSetNumber(4)
-                .addToxiproxy(true)
                 .slaveDelayTimeout(50000)
                 .slaveDelayNumber(1)
                 .build()
@@ -56,9 +53,12 @@ class MongoDbDelayedMembersITTest {
         }
     }
 
+    /**
+     * Disabled as unstable
+     */
     @Test
     @Disabled
-    void shouldTestDelayedMemberCannotBecomeSecondary() {
+    void shouldTestDelayedMemberMightBecomeSecondary() {
         try (
             final MongoDbReplicaSet mongoReplicaSet = MongoDbReplicaSet.builder()
                 .replicaSetNumber(4)
@@ -77,7 +77,17 @@ class MongoDbDelayedMembersITTest {
             mongoReplicaSet.disconnectNodeFromNetwork(masterNode);
             mongoReplicaSet.waitForMongoNodesDown(1);
             mongoReplicaSet.waitForMasterReelection(masterNode);
-            assertThrows(MongoNodeInitializationException.class, mongoReplicaSet::reconfigureReplSetToDefaults);
+            mongoReplicaSet.reconfigureReplSetToDefaults();
+
+            assertThat(
+                mongoReplicaSet.nodeStates(mongoReplicaSet.getMongoRsStatus().getMembers()),
+                hasItems(
+                    ReplicaSetMemberState.PRIMARY,
+                    ReplicaSetMemberState.SECONDARY,
+                    ReplicaSetMemberState.SECONDARY,
+                    ReplicaSetMemberState.DOWN
+                )
+            );
         }
     }
 }

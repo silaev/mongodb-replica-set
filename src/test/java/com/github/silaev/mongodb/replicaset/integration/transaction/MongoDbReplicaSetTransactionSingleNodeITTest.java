@@ -1,14 +1,14 @@
 package com.github.silaev.mongodb.replicaset.integration.transaction;
 
 import com.github.silaev.mongodb.replicaset.MongoDbReplicaSet;
-import com.github.silaev.mongodb.replicaset.core.EnabledIfSystemPropertyExistsAndMatches;
+import com.github.silaev.mongodb.replicaset.core.EnabledIfSystemPropertyEnabledByDefault;
 import com.github.silaev.mongodb.replicaset.core.IntegrationTest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 @IntegrationTest
-@EnabledIfSystemPropertyExistsAndMatches(
+@EnabledIfSystemPropertyEnabledByDefault(
     named = "mongoReplicaSetProperties.mongoDockerImageName",
     matches = "^mongo:4.*"
 )

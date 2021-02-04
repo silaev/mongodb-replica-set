@@ -1,5 +1,5 @@
 # Java8 MongoDBReplicaSet to construct a full-featured MongoDB cluster for integration testing, reproducing production issues, learning distributed systems by the example of MongoDB   
-[![Build Status](https://travis-ci.org/silaev/mongodb-replica-set.svg?branch=master)](https://travis-ci.org/silaev/mongodb-replica-set)
+![build](https://github.com/silaev/mongodb-replica-set/workflows/build/badge.svg?branch=master)
 [![codecov](https://codecov.io/gh/silaev/mongodb-replica-set/branch/master/graph/badge.svg)](https://codecov.io/gh/silaev/mongodb-replica-set)
 
 #### Prerequisite
@@ -52,7 +52,7 @@ class ITTest {
         try (
             //create a single node mongoDbReplicaSet and auto-close it afterwards
             final MongoDbReplicaSet mongoDbReplicaSet = MongoDbReplicaSet.builder()
-                .mongoDockerImageName("mongo:4.4.0")
+                .mongoDockerImageName("mongo:4.4.3")
                 .build()
         ) {
             //start it
@@ -71,7 +71,7 @@ class ITTest {
             //create a PSA mongoDbReplicaSet and auto-close it afterwards
             final MongoDbReplicaSet mongoDbReplicaSet = MongoDbReplicaSet.builder()
                 //with the latest mongo:4.4.0 docker image
-                .mongoDockerImageName("mongo:4.4.0")
+                .mongoDockerImageName("mongo:4.4.3")
                 //with 2 working nodes
                 .replicaSetNumber(2)
                 //with an arbiter node
@@ -181,4 +181,4 @@ mongoReplicaSetProperties:
 * [Support different networks](https://jira.mongodb.org/browse/SERVER-1889)
 
 #### Copyright
-Copyright (c) 2020 Konstantin Silaev <silaev256@gmail.com>
+Copyright (c) 2021 Konstantin Silaev <silaev256@gmail.com>

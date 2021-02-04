@@ -37,8 +37,11 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -106,7 +109,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     private static final String RS_EXCEPTION = "throw new Error('Replica set status is not ok, errmsg: ' + rs.status().errmsg +" +
         " ', codeName: ' + rs.status().codeName);";
     private static final String MONGODB_DATABASE_NAME_DEFAULT = "test";
-    private static final int RECONFIG_MAX_TIME_MS = 5000;
+    private static final int RECONFIG_MAX_TIME_MS = 10000;
     private final StringToMongoRsStatusConverter statusConverter;
     private final MongoNodeToMongoSocketAddressConverter socketAddressConverter;
     private final ApplicationProperties properties;
@@ -1200,7 +1203,18 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
      * Reconfigures a replica set by setting slaveDelay=0, priority=1 and hidden=false
      * for each node.
      */
+    @SneakyThrows
     public void reconfigureReplSetToDefaults() {
+        CompletableFuture<Void> cf = CompletableFuture.runAsync(this::reconfigureReplSetToDefaultsInternal);
+        try {
+            cf.get(RECONFIG_MAX_TIME_MS * 2, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            throw new MongoNodeInitializationException("Timeout exceeded for reconfigureReplSetToDefaults", e);
+        }
+    }
+
+    private void reconfigureReplSetToDefaultsInternal() {
+
         verifyWorkingNodeStoreIsNotEmpty();
         val replicaSetReConfig = getReplicaSetReConfigUnsetSlaveDelay();
         log.debug("Reconfiguring a replica set as per: {}", replicaSetReConfig);

@@ -3,12 +3,10 @@ package com.github.silaev.mongodb.replicaset.converter.impl;
 import com.github.silaev.mongodb.replicaset.service.ResourceService;
 import com.github.silaev.mongodb.replicaset.service.impl.ResourceServiceImpl;
 import lombok.val;
-import org.assertj.core.api.ThrowableAssert;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 class StringToMongoRsStatusConverterTest {
     private final StringToMongoRsStatusConverter converter = new StringToMongoRsStatusConverter(
@@ -36,22 +34,5 @@ class StringToMongoRsStatusConverterTest {
         assertThat(mongoRsStatusActual.getStatus()).isEqualTo(status);
         val members = mongoRsStatusActual.getMembers();
         assertThat(members.size()).isEqualTo(membersNumber);
-    }
-
-    @ParameterizedTest(name = "shouldNotConvert: {index}, fileName: {0}")
-    @CsvSource(value = {
-        "shell-output/rs-status-plain-wo-status.txt",
-        "shell-output/rs-status-wo-status.txt",
-        "shell-output/rs-status-wo-version.txt"
-    })
-    void shouldNotConvert(final String fileName) {
-        // GIVEN
-        val rsStatus = resourceService.getString(resourceService.getResourceIO(fileName));
-
-        // THEN
-        final ThrowableAssert.ThrowingCallable throwingCallable = () -> converter.convert(rsStatus);
-
-        // WHEN
-        assertThatExceptionOfType(IllegalArgumentException.class).isThrownBy(throwingCallable);
     }
 }
