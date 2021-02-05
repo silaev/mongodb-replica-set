@@ -858,7 +858,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             .withExposedPorts(MONGO_DB_INTERNAL_PORT)
             .withCommand("--bind_ip", "0.0.0.0", "--replSet", "docker-rs")
             .waitingFor(
-                Wait.forLogMessage("(?i).*waiting for connections.*", 1)
+                Wait.forListeningPort()
             );
         mongoDbContainer.start();
         return mongoDbContainer;
