@@ -105,7 +105,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     private static final boolean MOVE_FORWARD = true;
     private static final boolean STOP_PIPELINE = false;
     private static final String READ_PREFERENCE_PRIMARY = "primary";
-    private static final String RS_STATUS_MEMBERS_DEFINED_CONDITION = "rs.status().ok == 1 && rs.status().members != undefined && ";
+    private static final String RS_STATUS_MEMBERS_DEFINED_CONDITION = "rs.status().ok == 1 && rs.status().members !== undefined && ";
     private static final String RS_EXCEPTION = "throw new Error('Replica set status is not ok, errmsg: ' + rs.status().errmsg +" +
         " ', codeName: ' + rs.status().codeName);";
     private static final String MONGODB_DATABASE_NAME_DEFAULT = "test";
@@ -1521,7 +1521,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             RS_STATUS_MEMBERS_DEFINED_CONDITION +
                 "rs.status().members.find(" +
                 "o => o.state == 0 || o.state == 3 || o.state == 5 || o.state == 6 || o.state == 8 || o.state == 9" +
-                ") != undefined",
+                ") !== undefined",
             getAwaitNodeInitAttempts(),
             waitingMessage
         );
@@ -1542,8 +1542,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             workingNodeStore.values().iterator().next(),
             String.format(
                 RS_STATUS_MEMBERS_DEFINED_CONDITION +
-                    "rs.status().members.find(o => o.state == 8) != undefined && " +
-                    "rs.status().members.filter(o => o.state == 8).length != %d",
+                    "rs.status().members.filter(o => o.state == 8).length !== %d",
                 nodeNumber
             ),
             getAwaitNodeInitAttempts(),
