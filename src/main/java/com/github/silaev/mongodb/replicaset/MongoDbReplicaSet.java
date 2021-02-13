@@ -31,6 +31,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startable;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -87,6 +88,7 @@ import java.util.stream.Stream;
 public class MongoDbReplicaSet implements Startable, AutoCloseable {
     public static final int MAX_VOTING_MEMBERS = 7;
     public static final Comparator<MongoSocketAddress> COMPARATOR_MAPPED_PORT = Comparator.comparing(MongoSocketAddress::getMappedPort);
+    public static final String RECONFIG_RS_MSG = "Reconfiguring a replica set";
     static final String STATUS_COMMAND = "rs.status()";
     static final int CONTAINER_EXIT_CODE_OK = 0;
     private static final String SHOPIFY_TOXIPROXY_IMAGE = "shopify/toxiproxy:2.1.3";
@@ -105,7 +107,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     private static final boolean MOVE_FORWARD = true;
     private static final boolean STOP_PIPELINE = false;
     private static final String READ_PREFERENCE_PRIMARY = "primary";
-    private static final String RS_STATUS_MEMBERS_DEFINED_CONDITION = "rs.status().ok == 1 && rs.status().members !== undefined && ";
+    private static final String RS_STATUS_MEMBERS_DEFINED_CONDITION = "rs.status().ok === 1 && rs.status().members !== undefined && ";
     private static final String RS_EXCEPTION = "throw new Error('Replica set status is not ok, errmsg: ' + rs.status().errmsg +" +
         " ', codeName: ' + rs.status().codeName);";
     private static final String MONGODB_DATABASE_NAME_DEFAULT = "test";
@@ -227,6 +229,10 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
                 workingNodeStore.values().stream()
             )
         ).forEach(Startable::stop);
+        disconnectedNodeStore.clear();
+        supplementaryNodeStore.clear();
+        workingNodeStore.clear();
+        toxyNodeStore.clear();
         network.close();
     }
 
@@ -279,11 +285,33 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
 
     @Override
     public synchronized void start() {
-        if (!properties.isEnabled()) {
+        if (properties.isEnabled()) {
+            int attempt = 0;
+            Exception lastException = null;
+            boolean doContinue = true;
+            final int maxAttempts = 3;
+            while (doContinue && attempt < maxAttempts) {
+                log.debug("Provisioning a replica set, attempt: {} out of {}. Please, wait.", attempt + 1, maxAttempts);
+                try {
+                    startInternal();
+                    doContinue = false;
+                } catch (IncorrectUserInputException e) {
+                    throw e;
+                } catch (Exception e) {
+                    stop();
+                    lastException = e;
+                    attempt++;
+                }
+            }
+            if (doContinue) {
+                throw new MongoNodeInitializationException("Retry limit hit with exception", lastException);
+            }
+        } else {
             log.info("{} is disabled", CLASS_NAME);
-            return;
         }
+    }
 
+    public void startInternal() {
         if (USE_HOST_WORKAROUND && LOCALHOST.equals(getHostIpAddress()) && getReplicaSetNumber() > 1) {
             warnAboutTheNeedToModifyHostFile();
             supplementaryNodeStore.put(
@@ -448,6 +476,16 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         }
     }
 
+    /**
+     * All the conditions must be true to stop a loop.
+     *
+     * @param condition a condition
+     * @return a combined negated condition for a loop
+     */
+    private String buildWaitStopCondition(String condition) {
+        return "!(" + RS_STATUS_MEMBERS_DEFINED_CONDITION + condition + ")";
+    }
+
     private GenericContainer checkAndGetMasterNodeInMultiNodeReplicaSet(
         final GenericContainer mongoContainer,
         final int awaitNodeInitAttempts
@@ -455,8 +493,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         log.debug("Searching for a master node in a replica set, up to {} attempts", awaitNodeInitAttempts);
         val execResultWaitForAnyMaster = waitForCondition(
             mongoContainer,
-            RS_STATUS_MEMBERS_DEFINED_CONDITION +
-                "rs.status().members.find(o => o.state == 1) === undefined",
+            buildWaitStopCondition("rs.status().members.filter(o => o.state === 1).length === 1"),
             awaitNodeInitAttempts,
             "Searching for a master node"
         );
@@ -495,9 +532,9 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             String.format(
                 "var attempt = 0; " +
                     "while (attempt <= %d) { " +
-                    "attempt++; " +
-                    "if (%s rs.status().members.filter(o => o.state == 1).length === 1) " +
-                    "{ rs.status().members.find(o => o.state == 1).name; break; }}; " +
+                    "print('Waiting for a single master node up to ' + attempt); sleep(1000); attempt++;" +
+                    "if (%s rs.status().members.filter(o => o.state === 1).length === 1) " +
+                    "{ rs.status().members.find(o => o.state === 1).name; break; }}; " +
                     "if(attempt > %d) {quit(1)};",
                 getAwaitNodeInitAttempts(),
                 RS_STATUS_MEMBERS_DEFINED_CONDITION,
@@ -663,8 +700,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
 
         val execResultWaitArbiter = waitForCondition(
             masterNode,
-            RS_STATUS_MEMBERS_DEFINED_CONDITION +
-                "rs.status().members.find(o => o.state == 7) === undefined",
+            buildWaitStopCondition("rs.status().members.find(o => o.state === 7) !== undefined"),
             awaitNodeInitAttempts,
             "awaiting an arbiter node to be up"
         );
@@ -760,7 +796,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
                 "(%s) " +
                 "{ " +
                 "if (attempt > %d) {quit(1);} " +
-                "print('%s ' + attempt); sleep(1000);  attempt++; " +
+                "print('%s ' + attempt); sleep(1000); attempt++; " +
                 " }",
             condition, attempts, waitingMessage
         );
@@ -797,7 +833,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
                 )
             );
         log.debug("replicaSetInitializer: {}", replicaSetInitializer);
-        return "cfg = " + replicaSetInitializer + buildJsIfStatement("cfg.ok==1", "cfg");
+        return "cfg = " + replicaSetInitializer + buildJsIfStatement("cfg.ok===1", "cfg");
     }
 
     private String buildMongoRsUrl(final String readPreference) {
@@ -828,11 +864,12 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
      * @return a container to forward TCP and UDP traffic to the docker host.
      * @see <a href="https://github.com/qoomon/docker-host">docker-host on github</a>
      */
-    private @NonNull GenericContainer<?> getAndRunDockerHostContainer(
+    @SuppressWarnings("java:S2095")
+    private @NonNull GenericContainer getAndRunDockerHostContainer(
         final Network network,
         final String dockerHostName
     ) {
-        final GenericContainer<?> dockerHostContainer = new GenericContainer<>(
+        final GenericContainer dockerHostContainer = new GenericContainer<>(
             DOCKER_HOST_CONTAINER_NAME
         ).withPrivilegedMode(true)
             .withNetwork(network)
@@ -851,22 +888,27 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
      * @param network a shared network
      * @return a Docker container representing a MongoDB node
      */
-    private @NonNull GenericContainer<?> getAndStartMongoDbContainer(final Network network) {
-        final GenericContainer<?> mongoDbContainer = new GenericContainer<>(
+    @SuppressWarnings("java:S2095")
+    private @NonNull GenericContainer getAndStartMongoDbContainer(final Network network) {
+        final GenericContainer mongoDbContainer = new GenericContainer<>(
             properties.getMongoDockerImageName()
         ).withNetwork(getReplicaSetNumber() == 1 ? null : network)
             .withExposedPorts(MONGO_DB_INTERNAL_PORT)
             .withCommand("--bind_ip", "0.0.0.0", "--replSet", "docker-rs")
             .waitingFor(
                 Wait.forListeningPort()
-            );
+            ).withStartupTimeout(Duration.ofSeconds(60))
+            .withStartupAttempts(3);
         mongoDbContainer.start();
         return mongoDbContainer;
     }
 
+    @SuppressWarnings("java:S2095")
     private @NonNull ToxiproxyContainer getAndStartToxiproxyContainer() {
         final ToxiproxyContainer toxiproxy = new ToxiproxyContainer(SHOPIFY_TOXIPROXY_IMAGE)
-            .withNetwork(network);
+            .withNetwork(network)
+            .withStartupTimeout(Duration.ofSeconds(60))
+            .withStartupAttempts(3);
         toxiproxy.start();
         return toxiproxy;
     }
@@ -1193,10 +1235,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         );
         log.debug(execResult.getStdout());
 
-        checkMongoNodeExitCode(
-            execResult,
-            "Reconfiguring a replica set"
-        );
+        checkMongoNodeExitCode(execResult, RECONFIG_RS_MSG);
     }
 
     /**
@@ -1207,7 +1246,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     public void reconfigureReplSetToDefaults() {
         CompletableFuture<Void> cf = CompletableFuture.runAsync(this::reconfigureReplSetToDefaultsInternal);
         try {
-            cf.get(RECONFIG_MAX_TIME_MS * 2, TimeUnit.MILLISECONDS);
+            cf.get((long) RECONFIG_MAX_TIME_MS * 2, TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
             throw new MongoNodeInitializationException("Timeout exceeded for reconfigureReplSetToDefaults", e);
         }
@@ -1224,10 +1263,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         );
         log.debug(execResult.getStdout());
 
-        checkMongoNodeExitCodeAndStatus(
-            execResult,
-            "Reconfiguring a replica set"
-        );
+        checkMongoNodeExitCodeAndStatus(execResult, RECONFIG_RS_MSG);
     }
 
     @Generated
@@ -1293,7 +1329,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             ).collect(Collectors.joining(
                 ";\n",
                 "cfg = rs.conf();\n",
-                String.format(";\nrs.reconfig(cfg, {force : true, maxTimeMS: %d})", RECONFIG_MAX_TIME_MS))
+                String.format(";%nrs.reconfig(cfg, {force : true, maxTimeMS: %d})", RECONFIG_MAX_TIME_MS))
             );
     }
 
@@ -1309,7 +1345,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             .collect(Collectors.joining(
                 ",",
                 "cfg = rs.conf();\ncfg.members = [",
-                String.format("];\nrs.reconfig(cfg, {force : true, maxTimeMS: %d})", RECONFIG_MAX_TIME_MS))
+                String.format("];%nrs.reconfig(cfg, {force : true, maxTimeMS: %d})", RECONFIG_MAX_TIME_MS))
             );
     }
 
@@ -1325,7 +1361,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             .collect(Collectors.joining(
                 ",",
                 "cfg = rs.conf();\ncfg.members = [",
-                String.format("];\nrs.reconfig(cfg, {force : true, maxTimeMS: %d})", RECONFIG_MAX_TIME_MS))
+                String.format("];%nrs.reconfig(cfg, {force : true, maxTimeMS: %d})", RECONFIG_MAX_TIME_MS))
             );
     }
 
@@ -1415,10 +1451,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         );
         log.debug(execResult.getStdout());
 
-        checkMongoNodeExitCodeAndStatus(
-            execResult,
-            "Reconfiguring a replica set"
-        );
+        checkMongoNodeExitCodeAndStatus(execResult, RECONFIG_RS_MSG);
     }
 
     private void removeNodeFromReplSetConfig(
@@ -1481,8 +1514,8 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         val execResultMasterReelection = waitForCondition(
             workingNodeStore.values().iterator().next(),
             String.format(
-                RS_STATUS_MEMBERS_DEFINED_CONDITION +
-                    "rs.status().members.find(o => o.state == 1 && o.name!='%s') === undefined",
+                buildWaitStopCondition("rs.status().members.filter(o => o.state === 1).length === 1 && " +
+                    "rs.status().members.find(o => o.state === 1 && o.name === '%s') === undefined"),
                 prevMasterName
             ),
             getAwaitNodeInitAttempts() * 2,
@@ -1500,8 +1533,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         val message = "Waiting for a master node to be present in a cluster";
         val execResult = waitForCondition(
             workingNodeStore.values().iterator().next(),
-            RS_STATUS_MEMBERS_DEFINED_CONDITION +
-                "rs.status().members.find(o => o.state == 1) === undefined",
+            buildWaitStopCondition("rs.status().members.filter(o => o.state === 1).length === 1"),
             getAwaitNodeInitAttempts(),
             message
         );
@@ -1518,10 +1550,9 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         val waitingMessage = "Waiting for all nodes are up and running";
         val execResultWaitForNodesUp = waitForCondition(
             workingNodeStore.values().iterator().next(),
-            RS_STATUS_MEMBERS_DEFINED_CONDITION +
-                "rs.status().members.find(" +
-                "o => o.state == 0 || o.state == 3 || o.state == 5 || o.state == 6 || o.state == 8 || o.state == 9" +
-                ") !== undefined",
+            buildWaitStopCondition("rs.status().members.filter(" +
+                "o => o.state === 0 || o.state === 3 || o.state === 5 || o.state === 6 || o.state === 8 || o.state === 9" +
+                ").length === 0"),
             getAwaitNodeInitAttempts(),
             waitingMessage
         );
@@ -1541,8 +1572,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         val execResultWaitForNodesUp = waitForCondition(
             workingNodeStore.values().iterator().next(),
             String.format(
-                RS_STATUS_MEMBERS_DEFINED_CONDITION +
-                    "rs.status().members.filter(o => o.state == 8).length !== %d",
+                buildWaitStopCondition("rs.status().members.filter(o => o.state === 8).length === %d"),
                 nodeNumber
             ),
             getAwaitNodeInitAttempts(),
