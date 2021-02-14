@@ -10,7 +10,9 @@ import com.github.silaev.mongodb.replicaset.model.ReplicaSetMemberState;
 import com.github.silaev.mongodb.replicaset.util.StringUtils;
 import lombok.AllArgsConstructor;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import lombok.val;
+import lombok.var;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -19,6 +21,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -27,10 +30,12 @@ import java.util.stream.Collectors;
  * @author Konstantin Silaev
  */
 @AllArgsConstructor
-public class StringToMongoRsStatusConverter
-    implements Converter<String, MongoRsStatus> {
+@Slf4j
+public class StringToMongoRsStatusConverter implements Converter<String, MongoRsStatus> {
 
     private static final String MONGO_VERSION_MARKER = "MongoDB server version:";
+    private static final String OK = "\"ok\" : ";
+    private static final Pattern OK_PATTERN = Pattern.compile("(?i).*" + OK);
 
     private final YmlConverter yamlConverter;
     private final VersionConverter versionConverter;
@@ -44,9 +49,15 @@ public class StringToMongoRsStatusConverter
     @Override
     public MongoRsStatus convert(String source) {
         val io = new ByteArrayInputStream(
-            formatToJsonString(source).getBytes(StandardCharsets.UTF_8)
+            extractJsonPayloadFromMongoDBShell(source).getBytes(StandardCharsets.UTF_8)
         );
-        val mongoRsStatusMutable = yamlConverter.unmarshal(MongoRsStatusMutable.class, io);
+        MongoRsStatusMutable mongoRsStatusMutable;
+        try {
+            mongoRsStatusMutable = yamlConverter.unmarshal(MongoRsStatusMutable.class, io);
+        } catch (Exception e) {
+            log.error("Cannot convert to yaml format: \n{}", source);
+            throw e;
+        }
         if (Objects.isNull(mongoRsStatusMutable)) {
             return MongoRsStatus.of(
                 0,
@@ -86,32 +97,41 @@ public class StringToMongoRsStatusConverter
         );
     }
 
-    public String formatToJsonString(final String mongoDbReply) {
+    public String extractRawPayloadFromMongoDBShell(final String mongoDbReply) {
+        return extractRawPayloadFromMongoDBShell(mongoDbReply, false);
+    }
+
+    private String extractJsonPayloadFromMongoDBShell(final String mongoDbReply) {
+        return extractRawPayloadFromMongoDBShell(mongoDbReply, true);
+    }
+
+    private String extractRawPayloadFromMongoDBShell(final String mongoDbReply, final boolean formatJson) {
         String version = null;
+        val lines = mongoDbReply.replace("\t", "").split("\n");
+        int idx = 0;
+        val length = lines.length;
+        while (idx < length) {
+            String currentLine = lines[idx];
+            if (!currentLine.isEmpty() && currentLine.contains(MONGO_VERSION_MARKER)) {
+                version = currentLine.substring(currentLine.indexOf(':') + 1).trim();
+                idx++;
+                break;
+            }
+            idx++;
+        }
+
         val sb = new StringBuilder();
-        boolean isMongoVersionMarker = false;
-        for (String s : mongoDbReply.replaceAll("\t", "").split("\n")) {
-            if (!s.isEmpty()) {
-                if ((!isMongoVersionMarker) && (s.contains(MONGO_VERSION_MARKER))) {
-                    isMongoVersionMarker = true;
-                    version = s.substring(s.indexOf(':') + 1).trim();
-                } else if (isMongoVersionMarker) {
-                    if (s.contains("\"ok\" :")) {
-                        String statusString = s.replace("ok", "status");
-                        if (statusString.endsWith("}")) {
-                            statusString = s.replace("}", "");
-                        }
-                        sb.append(statusString);
-                        if (!s.contains(",")) {
-                            sb.append(",");
-                        }
-                        sb.append(
-                            String.format("\"version\" : \"%s\"}", version)
-                        );
-                        break;
-                    }
-                    sb.append(s);
-                }
+        for (int i = idx; i < length; i++) {
+            sb.append(lines[i].replaceAll("\\s\\s", ""));
+        }
+        if (formatJson) {
+            val matcher = OK_PATTERN.matcher(sb);
+            val endIndexOk = matcher.find() ? matcher.end() : 0;
+            if (endIndexOk > 0) {
+                val status = sb.substring(endIndexOk, endIndexOk + 1);
+                sb.delete(endIndexOk - OK.length(), sb.length());
+                val strExtra = String.format("\"version\" : \"%s\",", version) + String.format("\"status\" : \"%s\"}", status);
+                sb.append(strExtra);
             }
         }
         return sb.toString();

@@ -4,7 +4,10 @@ package com.github.silaev.mongodb.replicaset.converter.impl;
 import lombok.val;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import java.util.stream.Stream;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -14,6 +17,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 class VersionConverterTest {
     private final VersionConverter versionConverter = new VersionConverter();
+
+    private static Stream<String> incorrectVersions() {
+        return Stream.of("3", "", null);
+    }
 
     @ParameterizedTest(name = "{index}: version: {0}")
     @ValueSource(strings = {"3.6.14", "3.6"})
@@ -34,7 +41,7 @@ class VersionConverterTest {
     }
 
     @ParameterizedTest(name = "{index}: version: {0}")
-    @ValueSource(strings = {"3", ""})
+    @MethodSource("incorrectVersions")
     void shouldNotConvert(String version) {
         //GIVEN
         //version

@@ -1,0 +1,170 @@
+MongoDB shell version v4.4.3
+
+connecting to: mongodb://127.0.0.1:27017/?compressors=disabled&gssapiServiceName=mongodb
+
+Implicit session: session { "id" : UUID("fcf16368-ad95-4a7c-b1d0-bcf3741fbcbb") }
+
+MongoDB server version: 4.4.3
+
+{
+	"set" : "docker-rs",
+	"date" : ISODate("2021-02-11T08:03:08.109Z"),
+	"myState" : 1,
+	"term" : NumberLong(2),
+	"syncSourceHost" : "",
+	"syncSourceId" : -1,
+	"heartbeatIntervalMillis" : NumberLong(2000),
+	"majorityVoteCount" : 2,
+	"writeMajorityCount" : 2,
+	"votingMembersCount" : 3,
+	"writableVotingMembersCount" : 3,
+	"optimes" : {
+		"lastCommittedOpTime" : {
+			"ts" : Timestamp(1613030575, 6),
+			"t" : NumberLong(1)
+		},
+		"lastCommittedWallTime" : ISODate("2021-02-11T08:02:55.711Z"),
+		"readConcernMajorityOpTime" : {
+			"ts" : Timestamp(1613030575, 6),
+			"t" : NumberLong(1)
+		},
+		"readConcernMajorityWallTime" : ISODate("2021-02-11T08:02:55.711Z"),
+		"appliedOpTime" : {
+			"ts" : Timestamp(1613030576, 1),
+			"t" : NumberLong(1)
+		},
+		"durableOpTime" : {
+			"ts" : Timestamp(1613030576, 1),
+			"t" : NumberLong(1)
+		},
+		"lastAppliedWallTime" : ISODate("2021-02-11T08:02:56.759Z"),
+		"lastDurableWallTime" : ISODate("2021-02-11T08:02:56.759Z")
+	},
+	"lastStableRecoveryTimestamp" : Timestamp(1613030575, 6),
+	"e
+lectionCandidateMetrics" : {
+		"lastElectionReason" : "electionTimeout",
+		"lastElectionDate" : ISODate("2021-02-11T08:03:07.531Z"),
+		"electionTerm" : NumberLong(2),
+		"lastCommittedOpTimeAtElection" : {
+			"ts" : Timestamp(1613030575, 6),
+			"t" : NumberLong(1)
+		},
+		"lastSeenOpTimeAtElection" : {
+			"ts" : Timestamp(1613030576, 1),
+			"t" : NumberLong(1)
+		},
+		"numVotesNeeded" : 2,
+		"priorityAtElection" : 1,
+		"electionTimeoutMillis" : NumberLong(10000),
+		"priorPrimaryMemberId" : 0
+	},
+	"electionParticipantMetrics" : {
+		"votedForCandidate" : true,
+		"electionTerm" : NumberLong(1),
+		"lastVoteDate" : ISODate("2021-02-11T08:02:55.636Z"),
+		"electionCandidateMemberId" : 0,
+		"voteReason" : "",
+		"lastAppliedOpTimeAtElection" : {
+			"ts" : Timestamp(1613030564, 1),
+			"t" : NumberLong(-1)
+		},
+		"maxAppliedOpTimeInSet" : {
+			"ts" : Timestamp(1613030564, 1),
+			"t" : NumberLong(-1)
+		},
+		"priorityAtElection" : 1
+	},
+	"members" : [
+		{
+			"_id" : 0,
+			"name" : "dockerhost:49857",
+			"health" : 1,
+			"sta
+te" : 1,
+			"stateStr" : "PRIMARY",
+			"uptime" : 22,
+			"optime" : {
+				"ts" : Timestamp(1613030575, 6),
+				"t" : NumberLong(1)
+			},
+			"optimeDurable" : {
+				"ts" : Timestamp(1613030575, 6),
+				"t" : NumberLong(1)
+			},
+			"optimeDate" : ISODate("2021-02-11T08:02:55Z"),
+			"optimeDurableDate" : ISODate("2021-02-11T08:02:55Z"),
+			"lastHeartbeat" : ISODate("2021-02-11T08:02:56.708Z"),
+			"lastHeartbeatRecv" : ISODate("2021-02-11T08:03:07.676Z"),
+			"pingMs" : NumberLong(2),
+			"lastHeartbeatMessage" : "",
+			"syncSourceHost" : "",
+			"syncSourceId" : -1,
+			"infoMessage" : "",
+			"electionTime" : Timestamp(1613030575, 1),
+			"electionDate" : ISODate("2021-02-11T08:02:55Z"),
+			"configVersion" : 1,
+			"configTerm" : 1
+		},
+		{
+			"_id" : 1,
+			"name" : "dockerhost:49858",
+			"health" : 1,
+			"state" : 1,
+			"stateStr" : "PRIMARY",
+			"uptime" : 27,
+			"optime" : {
+				"ts" : Timestamp(1613030576, 1),
+				"t" : NumberLong(1)
+			},
+			"optimeDate" : ISODate("2021-02-11T08:02:56Z"),
+			"syncSourceHost" : ""
+,
+			"syncSourceId" : -1,
+			"infoMessage" : "",
+			"electionTime" : Timestamp(1613030587, 1),
+			"electionDate" : ISODate("2021-02-11T08:03:07Z"),
+			"configVersion" : 1,
+			"configTerm" : 1,
+			"self" : true,
+			"lastHeartbeatMessage" : ""
+		},
+		{
+			"_id" : 2,
+			"name" : "dockerhost:49859",
+			"health" : 1,
+			"state" : 2,
+			"stateStr" : "SECONDARY",
+			"uptime" : 22,
+			"optime" : {
+				"ts" : Timestamp(1613030576, 1),
+				"t" : NumberLong(1)
+			},
+			"optimeDurable" : {
+				"ts" : Timestamp(1613030576, 1),
+				"t" : NumberLong(1)
+			},
+			"optimeDate" : ISODate("2021-02-11T08:02:56Z"),
+			"optimeDurableDate" : ISODate("2021-02-11T08:02:56Z"),
+			"lastHeartbeat" : ISODate("2021-02-11T08:03:07.542Z"),
+			"lastHeartbeatRecv" : ISODate("2021-02-11T08:03:06.726Z"),
+			"pingMs" : NumberLong(1),
+			"lastHeartbeatMessage" : "",
+			"syncSourceHost" : "dockerhost:49857",
+			"syncSourceId" : 0,
+			"infoMessage" : "",
+			"configVersion" : 1,
+			"configTerm" : 1
+		}
+	],
+	"ok" : 1,
+	"$clusterTime" : {
+		"clusterTim
+e" : Timestamp(1613030587, 1),
+		"signature" : {
+			"hash" : BinData(0,"AAAAAAAAAAAAAAAAAAAAAAAAAAA="),
+			"keyId" : NumberLong(0)
+		}
+	},
+	"operationTime" : Timestamp(1613030576, 1)
+}

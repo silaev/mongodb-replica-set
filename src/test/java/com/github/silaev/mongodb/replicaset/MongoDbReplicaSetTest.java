@@ -185,11 +185,11 @@ class MongoDbReplicaSetTest {
         val execResult = mock(Container.ExecResult.class);
         when(execResult.getExitCode())
             .thenReturn(MongoDbReplicaSet.CONTAINER_EXIT_CODE_OK);
-        when(execResult.getStdout()).thenReturn(
-            resourceService.getString(
-                resourceService.getResourceIO("timeout-exceeds.txt")
-            )
+        val stdout = resourceService.getString(
+            resourceService.getResourceIO("shell-output/timeout-exceeds.txt")
         );
+        when(execResult.getStdout()).thenReturn(stdout);
+        when(converter.convert(stdout)).thenReturn(MongoRsStatus.of(0, null, null));
 
         //WHEN
         Executable executable =

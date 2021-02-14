@@ -163,7 +163,7 @@ public class UserInputToApplicationPropertiesConverter
             );
         }
 
-        if (Objects.nonNull(inputProperties.getSlaveDelayNumber()) && inputProperties.getSlaveDelayTimeout()==0) {
+        if (Objects.nonNull(inputProperties.getSlaveDelayNumber()) && inputProperties.getSlaveDelayTimeout() == 0) {
             throw new IncorrectUserInputException(
                 "Please, specify slaveDelayTimeout"
             );

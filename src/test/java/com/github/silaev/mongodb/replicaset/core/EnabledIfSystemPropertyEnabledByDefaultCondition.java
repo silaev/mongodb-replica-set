@@ -21,21 +21,21 @@ import static org.junit.platform.commons.util.AnnotationUtils.findAnnotation;
  *
  * @see EnabledIfSystemProperty
  */
-class EnabledIfSystemPropertyExistsAndMatchesCondition implements ExecutionCondition {
+class EnabledIfSystemPropertyEnabledByDefaultCondition implements ExecutionCondition {
 
     private static final ConditionEvaluationResult ENABLED_BY_DEFAULT = enabled(
         "@EnabledIfSystemProperty is not present");
 
     @Override
     public ConditionEvaluationResult evaluateExecutionCondition(ExtensionContext context) {
-        Optional<EnabledIfSystemPropertyExistsAndMatches> optional = findAnnotation(context.getElement(),
-            EnabledIfSystemPropertyExistsAndMatches.class);
+        Optional<EnabledIfSystemPropertyEnabledByDefault> optional = findAnnotation(context.getElement(),
+            EnabledIfSystemPropertyEnabledByDefault.class);
 
         if (!optional.isPresent()) {
             return ENABLED_BY_DEFAULT;
         }
 
-        EnabledIfSystemPropertyExistsAndMatches annotation = optional.get();
+        EnabledIfSystemPropertyEnabledByDefault annotation = optional.get();
         String name = annotation.named().trim();
         String regex = annotation.matches();
         Preconditions.notBlank(name, () -> "The 'named' attribute must not be blank in " + annotation);

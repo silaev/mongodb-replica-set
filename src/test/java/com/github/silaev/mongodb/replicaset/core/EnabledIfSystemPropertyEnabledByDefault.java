@@ -20,8 +20,8 @@ import java.lang.annotation.Target;
 @Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-@ExtendWith(EnabledIfSystemPropertyExistsAndMatchesCondition.class)
-public @interface EnabledIfSystemPropertyExistsAndMatches {
+@ExtendWith(EnabledIfSystemPropertyEnabledByDefaultCondition.class)
+public @interface EnabledIfSystemPropertyEnabledByDefault {
 
     /**
      * The name of the JVM system property to retrieve.
