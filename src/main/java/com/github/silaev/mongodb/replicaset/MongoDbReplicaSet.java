@@ -97,7 +97,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     private static final String LOCALHOST = "localhost";
     private static final String DOCKER_HOST_WORKAROUND = "dockerhost";
     private static final String DOCKER_HOST_INTERNAL = "host.docker.internal";
-    private static final boolean USE_HOST_WORKAROUND = true;
+    private static final boolean USE_HOST_WORKAROUND = false;
     private static final int MONGO_DB_INTERNAL_PORT = 27017;
     private static final String MONGO_ARBITER_NODE_NAME = "mongo-arbiter";
     private static final String DOCKER_HOST_CONTAINER_NAME = "qoomon/docker-host:2.4.0";
