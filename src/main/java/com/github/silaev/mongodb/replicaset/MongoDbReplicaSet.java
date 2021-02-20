@@ -893,6 +893,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         final GenericContainer mongoDbContainer = new GenericContainer<>(
             properties.getMongoDockerImageName()
         ).withNetwork(getReplicaSetNumber() == 1 ? null : network)
+            .withExtraHost(DOCKER_HOST_INTERNAL, "host-gateway")
             .withExposedPorts(MONGO_DB_INTERNAL_PORT)
             .withCommand("--bind_ip", "0.0.0.0", "--replSet", "docker-rs")
             .waitingFor(
