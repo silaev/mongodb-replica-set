@@ -1,5 +1,7 @@
 package com.github.silaev.mongodb.replicaset;
 
+import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.model.Info;
 import com.github.silaev.mongodb.replicaset.converter.impl.MongoNodeToMongoSocketAddressConverter;
 import com.github.silaev.mongodb.replicaset.converter.impl.StringToMongoRsStatusConverter;
 import com.github.silaev.mongodb.replicaset.converter.impl.UserInputToApplicationPropertiesConverter;
@@ -34,6 +36,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Objects;
@@ -312,13 +315,8 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     }
 
     public void startInternal() {
-        if (USE_HOST_WORKAROUND && LOCALHOST.equals(getHostIpAddress()) && getReplicaSetNumber() > 1) {
-            warnAboutTheNeedToModifyHostFile();
-            supplementaryNodeStore.put(
-                DOCKER_HOST_WORKAROUND,
-                Pair.of(getAndRunDockerHostContainer(network, getDockerHostName()), null)
-            );
-        }
+        decideOnDockerHost();
+        final boolean addExtraHost = shouldAddExtraHost();
 
         ToxiproxyContainer toxiproxyContainer = null;
         if (getAddToxiproxy()) {
@@ -328,7 +326,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         val replicaSetNumber = properties.getReplicaSetNumber();
 
         for (int i = 0; i < replicaSetNumber; i++) {
-            GenericContainer mongoContainer = getAndStartMongoDbContainer(network);
+            GenericContainer mongoContainer = getAndStartMongoDbContainer(network, addExtraHost);
 
             val pair = getContainerProxyAndPort(mongoContainer, toxiproxyContainer);
 
@@ -353,13 +351,35 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         val masterNode = initMasterNode(mongoContainer, awaitNodeInitAttempts);
 
         if (getAddArbiter()) {
-            addArbiterNode(network, toxiproxyContainer, masterNode, awaitNodeInitAttempts);
+            addArbiterNode(network, toxiproxyContainer, masterNode, awaitNodeInitAttempts, addExtraHost);
         }
 
         log.debug(
             "REPLICA SET STATUS:\n{}",
             execMongoDbCommandInContainer(mongoContainer, STATUS_COMMAND).getStdout()
         );
+    }
+
+    private void decideOnDockerHost() {
+        if (USE_HOST_WORKAROUND && getReplicaSetNumber() > 1 && LOCALHOST.equals(getHostIpAddress())) {
+            warnAboutTheNeedToModifyHostFile();
+            supplementaryNodeStore.put(
+                DOCKER_HOST_WORKAROUND,
+                Pair.of(getAndRunDockerHostContainer(network, getDockerHostName()), null)
+            );
+        }
+    }
+
+    private boolean shouldAddExtraHost() {
+        boolean addExtraHost = false;
+        if (!USE_HOST_WORKAROUND && getReplicaSetNumber() > 1) {
+            final Pair<String, String> ipAddressAndOS = getHostIpAddressAndOS();
+            final boolean isLinux = !ipAddressAndOS.getRight().toLowerCase(Locale.ENGLISH).contains("docker desktop");
+            if (isLinux && LOCALHOST.equals(ipAddressAndOS.getLeft())) {
+                addExtraHost = true;
+            }
+        }
+        return addExtraHost;
     }
 
     private Pair<ToxiproxyContainer.ContainerProxy, Integer> getContainerProxyAndPort(
@@ -412,6 +432,22 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
                     "The instance of the DockerClientFactory is not initialized"
                 )
             );
+    }
+
+    @NonNull
+    private Pair<String, String> getHostIpAddressAndOS() {
+        try {
+            final DockerClientFactory clientFactory = DockerClientFactory.instance();
+            final DockerClient client = clientFactory.client();
+            final Info dockerInfo = client.infoCmd().exec();
+            final String hostIp = clientFactory.dockerHostIpAddress();
+            Objects.requireNonNull(hostIp, "DockerClient: dockerHostIpAddress is not supposed to be null");
+            final String os = dockerInfo.getOperatingSystem();
+            Objects.requireNonNull(os, "DockerClient: operatingSystem is not supposed to be null");
+            return Pair.of(hostIp, os);
+        } catch (Exception e) {
+            throw new IllegalStateException("Cannot getHostIpAddressAndOS", e);
+        }
     }
 
     private GenericContainer initMasterNode(
@@ -670,11 +706,12 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         final Network network,
         final ToxiproxyContainer toxiproxyContainer,
         final GenericContainer masterNode,
-        final int awaitNodeInitAttempts
+        final int awaitNodeInitAttempts,
+        boolean addExtraHost
     ) {
         log.debug("Awaiting an arbiter node to be available, up to {} attempts", properties.getAwaitNodeInitAttempts());
 
-        val mongoContainerArbiter = getAndStartMongoDbContainer(network);
+        val mongoContainerArbiter = getAndStartMongoDbContainer(network, addExtraHost);
         val pair = getContainerProxyAndPort(mongoContainerArbiter, toxiproxyContainer);
         val mongoSocketAddress = getMongoSocketAddress(
             mongoContainerArbiter.getContainerIpAddress(),
@@ -889,17 +926,22 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
      * @return a Docker container representing a MongoDB node
      */
     @SuppressWarnings("java:S2095")
-    private @NonNull GenericContainer getAndStartMongoDbContainer(final Network network) {
+    private @NonNull GenericContainer getAndStartMongoDbContainer(
+        final Network network,
+        final boolean addExtraHost
+    ) {
         final GenericContainer mongoDbContainer = new GenericContainer<>(
             properties.getMongoDockerImageName()
         ).withNetwork(getReplicaSetNumber() == 1 ? null : network)
-            .withExtraHost(DOCKER_HOST_INTERNAL, "host-gateway")
             .withExposedPorts(MONGO_DB_INTERNAL_PORT)
             .withCommand("--bind_ip", "0.0.0.0", "--replSet", "docker-rs")
             .waitingFor(
                 Wait.forListeningPort()
             ).withStartupTimeout(Duration.ofSeconds(60))
             .withStartupAttempts(3);
+        if (addExtraHost) {
+            mongoDbContainer.withExtraHost(DOCKER_HOST_INTERNAL, "host-gateway");
+        }
         mongoDbContainer.start();
         return mongoDbContainer;
     }
