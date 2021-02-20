@@ -10,9 +10,12 @@ jobs:
     runs-on: ubuntu-18.04
     strategy:
         fail-fast: false
-        matrix:
-            mongodb-version: ['3.6.14', '4.0.10', '4.2.8', '4.4.3', '4.4.3']
-            use-host-docker-internal: [false, false, false, false, true]
+        cfg:
+            - { mongodb-version: '3.6.14', use-host-docker-internal: false }
+            - { mongodb-version: '4.0.10', use-host-docker-internal: false }
+            - { mongodb-version: '4.2.8', use-host-docker-internal: false }
+            - { mongodb-version: '4.4.3', use-host-docker-internal: false }
+            - { mongodb-version: '4.4.3', use-host-docker-internal: true }
 
     steps:
     - uses: actions/checkout@v2
@@ -29,18 +32,18 @@ jobs:
       with:
         java-version: 1.8
     - name: Add dockerhost to OS host file
-      if: ${{ !matrix.use-host-docker-internal }}
+      if: ${{ !matrix.cfg.use-host-docker-internal }}
       run: sudo echo "127.0.0.1 dockerhost" | sudo tee -a /etc/hosts
     - name: Add host.docker.internal to OS host file
-      if: ${{ matrix.use-host-docker-internal }}
+      if: ${{ matrix.cfg.use-host-docker-internal }}
       run: sudo echo "127.0.0.1 host.docker.internal" | sudo tee -a /etc/hosts
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
-    - name: Build with Gradle agains host ${{ matrix.mongodb-version }}
-      run: ./gradlew clean build --no-daemon -DmongoReplicaSetProperties.mongoDockerImageName=mongo:${{ matrix.mongodb-version }}
-    - name: Build with Gradle in docker-only mode ${{ matrix.mongodb-version }}
+    - name: Build with Gradle agains host, mongodb-version ${{ matrix.cfg.mongodb-version }}
+      run: ./gradlew clean build --no-daemon -DmongoReplicaSetProperties.mongoDockerImageName=mongo:${{ matrix.cfg.mongodb-version }}
+    - name: Build with Gradle in docker-only mode ${{ matrix.cfg.mongodb-version }}
       env:
-          MONGO_VERSION: ${{ matrix.mongodb-version }}
+          MONGO_VERSION: ${{ matrix.cfg.mongodb-version }}
       run: |
         docker-compose -f docker-compose-it-test.yml up -d;
         docker wait run-it-test-mongodb-replica-set;
