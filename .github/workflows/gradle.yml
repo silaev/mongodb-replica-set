@@ -10,12 +10,13 @@ jobs:
     runs-on: ubuntu-18.04
     strategy:
         fail-fast: false
-        cfg:
-            - { mongodb-version: '3.6.14', use-host-docker-internal: false }
-            - { mongodb-version: '4.0.10', use-host-docker-internal: false }
-            - { mongodb-version: '4.2.8', use-host-docker-internal: false }
-            - { mongodb-version: '4.4.3', use-host-docker-internal: false }
-            - { mongodb-version: '4.4.3', use-host-docker-internal: true }
+        matrix:
+            cfg:
+                - { mongodb-version: '3.6.14', use-host-docker-internal: false }
+                - { mongodb-version: '4.0.10', use-host-docker-internal: false }
+                - { mongodb-version: '4.2.8', use-host-docker-internal: false }
+                - { mongodb-version: '4.4.3', use-host-docker-internal: false }
+                - { mongodb-version: '4.4.3', use-host-docker-internal: true }
 
     steps:
     - uses: actions/checkout@v2
