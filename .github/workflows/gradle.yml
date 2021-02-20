@@ -11,7 +11,9 @@ jobs:
     strategy:
         fail-fast: false
         matrix:
-            mongodb-version: ['3.6.14', '4.0.10', '4.2.8', '4.4.3']
+            mongodb-version: ['3.6.14', '4.0.10', '4.2.8', '4.4.3', '4.4.3']
+            use-host-docker-internal: [false, false, false, false, true]
+
     steps:
     - uses: actions/checkout@v2
     - uses: actions/cache@v2
@@ -27,6 +29,10 @@ jobs:
       with:
         java-version: 1.8
     - name: Add dockerhost to OS host file
+      if: ${{ !matrix.use-host-docker-internal }}
+      run: sudo echo "127.0.0.1 dockerhost" | sudo tee -a /etc/hosts
+    - name: Add host.docker.internal to OS host file
+      if: ${{ matrix.use-host-docker-internal }}
       run: sudo echo "127.0.0.1 host.docker.internal" | sudo tee -a /etc/hosts
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
