@@ -10,7 +10,7 @@
     replicaSetNumber | local docker host | local docker host running tests from inside a container with mapping the Docker socket | remote docker daemon | availability of an arbiter node |
     :---: | :---: |:---: | :---: | :---: |
     1 | + | + | + | - |
-    from 2 to 7 (including)  | only if adding either <b>127.0.0.1 host.docker.internal</b> or <b>127.0.0.1 dockerhost</b> to the OS host file | + | + | + |
+    from 2 to 7 (including)  | only if adding either <b>host.docker.internal</b> (your Docker version should support it) or <b>dockerhost</b> to the OS host file. See <b>Supported features</b> for info | + | + | + |
 
 Tip:
 A single node replica set is the fastest among others. That  is the default mode for MongoDbReplicaSet.
