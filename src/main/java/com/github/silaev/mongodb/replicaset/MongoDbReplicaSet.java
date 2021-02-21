@@ -100,7 +100,6 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     private static final String LOCALHOST = "localhost";
     private static final String DOCKER_HOST_WORKAROUND = "dockerhost";
     private static final String DOCKER_HOST_INTERNAL = "host.docker.internal";
-    private static final boolean USE_HOST_WORKAROUND = false;
     private static final int MONGO_DB_INTERNAL_PORT = 27017;
     private static final String MONGO_ARBITER_NODE_NAME = "mongo-arbiter";
     private static final String DOCKER_HOST_CONTAINER_NAME = "qoomon/docker-host:2.4.0";
@@ -128,6 +127,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     private final Network network;
 
     @Builder
+    @SuppressWarnings("unused")
     private MongoDbReplicaSet(
         final Integer replicaSetNumber,
         final Integer awaitNodeInitAttempts,
@@ -136,7 +136,8 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         final Boolean addArbiter,
         final Boolean addToxiproxy,
         final Integer slaveDelayTimeout,
-        final Integer slaveDelayNumber
+        final Integer slaveDelayNumber,
+        final Boolean useHostDockerInternal
     ) {
         val propertyConverter =
             new UserInputToApplicationPropertiesConverter();
@@ -151,6 +152,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
                 .addToxiproxy(addToxiproxy)
                 .slaveDelayTimeout(slaveDelayTimeout)
                 .slaveDelayNumber(slaveDelayNumber)
+                .useHostDockerInternal(useHostDockerInternal)
                 .build()
         );
         this.statusConverter = new StringToMongoRsStatusConverter();
@@ -275,11 +277,12 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         return properties.getSlaveDelayNumber();
     }
 
-    /**
-     * Consider switching to host.docker.internal once https://github.com/docker/for-linux/issues/264 is resolved.
-     */
+    public boolean getUseHostDockerInternal() {
+        return properties.isUseHostDockerInternal();
+    }
+
     private String getDockerHostName() {
-        return USE_HOST_WORKAROUND ? DOCKER_HOST_WORKAROUND : DOCKER_HOST_INTERNAL;
+        return getUseHostDockerInternal() ? DOCKER_HOST_INTERNAL : DOCKER_HOST_WORKAROUND;
     }
 
     private String[] buildMongoEvalCommand(final String command) {
@@ -361,7 +364,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     }
 
     private void decideOnDockerHost() {
-        if (USE_HOST_WORKAROUND && getReplicaSetNumber() > 1 && LOCALHOST.equals(getHostIpAddress())) {
+        if (!getUseHostDockerInternal() && getReplicaSetNumber() > 1 && LOCALHOST.equals(getHostIpAddress())) {
             warnAboutTheNeedToModifyHostFile();
             supplementaryNodeStore.put(
                 DOCKER_HOST_WORKAROUND,
@@ -372,7 +375,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
 
     private boolean shouldAddExtraHost() {
         boolean addExtraHost = false;
-        if (!USE_HOST_WORKAROUND && getReplicaSetNumber() > 1) {
+        if (getUseHostDockerInternal() && getReplicaSetNumber() > 1) {
             final Pair<String, String> ipAddressAndOS = getHostIpAddressAndOS();
             final boolean isLinux = !ipAddressAndOS.getRight().toLowerCase(Locale.ENGLISH).contains("docker desktop");
             if (isLinux && LOCALHOST.equals(ipAddressAndOS.getLeft())) {

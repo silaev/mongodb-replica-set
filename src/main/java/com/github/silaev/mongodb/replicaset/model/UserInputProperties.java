@@ -19,4 +19,5 @@ public final class UserInputProperties {
     private final Integer slaveDelayTimeout;
     private final String propertyFileName;
     private final Integer slaveDelayNumber;
+    private final Boolean useHostDockerInternal;
 }
