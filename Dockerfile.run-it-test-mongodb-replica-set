@@ -1,4 +1,6 @@
 FROM bellsoft/liberica-openjdk-alpine:8
 COPY . .
 RUN chmod +x gradlew
-CMD ["sh", "-c", "./gradlew integrationTest --no-daemon -DmongoReplicaSetProperties.mongoDockerImageName=mongo:${MONGO_VERSION}"]
+CMD ["sh", "-c", "./gradlew integrationTest --no-daemon \
+                 -DmongoReplicaSetProperties.mongoDockerImageName=mongo:${MONGO_VERSION} \
+                 -DmongoReplicaSetProperties.useHostDockerInternal=${USE_HOST_DOCKER_INTERNAL}"]

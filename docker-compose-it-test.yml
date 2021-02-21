@@ -1,10 +1,11 @@
 version: "2"
 services:
   run-it:
-    image: run-it-test-mongodb-replica-set:0.4.1
+    image: run-it-test-mongodb-replica-set:0.4.2
     container_name: "run-it-test-mongodb-replica-set"
     environment:
       - MONGO_VERSION=${MONGO_VERSION}
+      - USE_HOST_DOCKER_INTERNAL=${USE_HOST_DOCKER_INTERNAL}
     build:
       context: .
       dockerfile: Dockerfile.run-it-test-mongodb-replica-set
