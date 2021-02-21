@@ -30,10 +30,10 @@ public class UserInputToApplicationPropertiesConverter
     public static final int REPLICA_SET_NUMBER_DEFAULT = 1;
     public static final int AWAIT_NODE_INIT_ATTEMPTS = 29;
     public static final String MONGO_DOCKER_IMAGE_DEFAULT = "mongo:4.0.10";
+    public static final boolean USE_HOST_DOCKER_INTERNAL_DEFAULT = false;
     private static final Boolean ADD_ARBITER_DEFAULT = Boolean.FALSE;
     private static final boolean ENABLED_DEFAULT = true;
     private static final String YML_FORMAT = "yml";
-
     private final YmlConverter ymlConverter;
     private final ResourceService resourceService;
 
@@ -84,6 +84,15 @@ public class UserInputToApplicationPropertiesConverter
             );
     }
 
+    private Boolean getUseHostDockerInternal(Boolean useHostDockerInternalInput) {
+        return Optional.ofNullable(useHostDockerInternalInput)
+            .orElseGet(
+                () -> Optional.ofNullable(System.getProperty("mongoReplicaSetProperties.useHostDockerInternal"))
+                    .map(Boolean::valueOf)
+                    .orElse(USE_HOST_DOCKER_INTERNAL_DEFAULT)
+            );
+    }
+
     private Boolean getEnabled(Boolean fileProperties) {
         return Optional.ofNullable(System.getProperty("mongoReplicaSetProperties.enabled"))
             .map(Boolean::valueOf)
@@ -115,6 +124,7 @@ public class UserInputToApplicationPropertiesConverter
         val addToxiproxy = Optional.ofNullable(inputProperties.getAddToxiproxy()).orElse(false);
         val slaveDelayTimeout = Optional.ofNullable(inputProperties.getSlaveDelayTimeout()).orElse(0);
         val slaveDelayNumber = Optional.ofNullable(inputProperties.getSlaveDelayNumber()).orElse(0);
+        val useHostDockerInternal = getUseHostDockerInternal(inputProperties.getUseHostDockerInternal());
 
         return ApplicationProperties.builder()
             .replicaSetNumber(replicaSetNumber)
@@ -125,6 +135,7 @@ public class UserInputToApplicationPropertiesConverter
             .addToxiproxy(addToxiproxy)
             .slaveDelayTimeout(slaveDelayTimeout)
             .slaveDelayNumber(slaveDelayNumber)
+            .useHostDockerInternal(useHostDockerInternal)
             .build();
     }
 

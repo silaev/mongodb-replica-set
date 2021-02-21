@@ -8,6 +8,7 @@ import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -18,9 +19,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 class MongoDbReplicaSetBuilderTest {
 
-    private static final String DOCKER_IMAGE_NAME_PROPERTIES =
-        "mongoReplicaSetProperties.mongoDockerImageName";
-    private static final String ENABLED_PROPERTIES = "mongoReplicaSetProperties.enabled";
+    private static final String PREFIX = "mongoReplicaSetProperties.";
+    private static final String DOCKER_IMAGE_NAME_PROPERTIES = PREFIX + "mongoDockerImageName";
+    private static final String ENABLED_PROPERTIES = PREFIX + "enabled";
+    private static final String USE_HOST_DOCKER_INTERNAL = PREFIX + "useHostDockerInternal";
 
     @Test
     void shouldGetDefaultReplicaSetNumber() {
@@ -73,7 +75,6 @@ class MongoDbReplicaSetBuilderTest {
     @Test
     void shouldGetDefaultMongoDockerImageName() {
         //GIVEN
-        System.clearProperty(DOCKER_IMAGE_NAME_PROPERTIES);
         val mongoDockerImageExpected =
             UserInputToApplicationPropertiesConverter.MONGO_DOCKER_IMAGE_DEFAULT;
 
@@ -88,29 +89,78 @@ class MongoDbReplicaSetBuilderTest {
     }
 
     @Test
+    void shouldGetUseHostDockerInternalFromProperty() {
+        //GIVEN
+        try {
+            System.setProperty(USE_HOST_DOCKER_INTERNAL, "true");
+
+            //WHEN
+            val replicaSet = MongoDbReplicaSet.builder().build();
+
+            //THEN
+            assertThat(replicaSet.getUseHostDockerInternal()).isTrue();
+        } finally {
+            System.clearProperty(USE_HOST_DOCKER_INTERNAL);
+        }
+    }
+
+    @Test
+    void shouldGetUseHostDockerInternalFromInput() {
+        //GIVEN
+        try {
+            System.setProperty(USE_HOST_DOCKER_INTERNAL, "false");
+
+            //WHEN
+            final MongoDbReplicaSet replicaSet = MongoDbReplicaSet.builder().useHostDockerInternal(true).build();
+
+            //THEN
+            assertThat(replicaSet.getUseHostDockerInternal()).isTrue();
+        } finally {
+            System.clearProperty(USE_HOST_DOCKER_INTERNAL);
+        }
+    }
+
+    @Test
+    void shouldGetUseHostDockerInternalDefault() {
+        //GIVEN
+        try {
+            System.clearProperty(USE_HOST_DOCKER_INTERNAL);
+
+            //WHEN
+            val replicaSet = MongoDbReplicaSet.builder().build();
+
+            //THEN
+            assertThat(replicaSet.getUseHostDockerInternal()).isEqualTo(
+                UserInputToApplicationPropertiesConverter.USE_HOST_DOCKER_INTERNAL_DEFAULT
+            );
+        } finally {
+            System.clearProperty(USE_HOST_DOCKER_INTERNAL);
+        }
+    }
+
+    @Test
     void shouldGetMongoDockerImageNameFromSystemProperty() {
         //GIVEN
-        val mongoDockerFile = "mongo:4.2.0";
-        val mongoDockerImageNameProperty = DOCKER_IMAGE_NAME_PROPERTIES;
-        System.setProperty(mongoDockerImageNameProperty, mongoDockerFile);
+        try {
+            val mongoDockerFile = "mongo:4.2.0";
+            System.setProperty(DOCKER_IMAGE_NAME_PROPERTIES, mongoDockerFile);
 
-        //WHEN
-        val replicaSet = MongoDbReplicaSet.builder().build();
+            //WHEN
+            val replicaSet = MongoDbReplicaSet.builder().build();
 
-        //THEN
-        assertEquals(
-            mongoDockerFile,
-            replicaSet.getMongoDockerImageName()
-        );
-
-        //CLEAN UP
-        System.clearProperty(mongoDockerImageNameProperty);
+            //THEN
+            assertEquals(
+                mongoDockerFile,
+                replicaSet.getMongoDockerImageName()
+            );
+        } finally {
+            System.clearProperty(DOCKER_IMAGE_NAME_PROPERTIES);
+        }
     }
 
     @Test
     void shouldGetMongoDockerImageNameFromPropertyFile() {
         //GIVEN
-        System.clearProperty(DOCKER_IMAGE_NAME_PROPERTIES);
         val propertyFileName = "enabled-false.yml";
         val mongoDockerFile = "mongo:4.1.13";
 
@@ -130,7 +180,6 @@ class MongoDbReplicaSetBuilderTest {
     void shouldGetDefaultIsEnabled() {
         //GIVEN
         val propertyFileName = "enabled-false.yml";
-        Boolean isEnabledExpected = Boolean.FALSE;
 
         //WHEN
         val replicaSet = MongoDbReplicaSet.builder()
@@ -138,57 +187,52 @@ class MongoDbReplicaSetBuilderTest {
             .build();
 
         //THEN
-        assertEquals(
-            isEnabledExpected,
-            replicaSet.isEnabled()
-        );
+        assertThat(replicaSet.isEnabled()).isFalse();
     }
 
     @Test
     void shouldIsEnabledFromPropertyFile() {
         //GIVEN
-        val isEnabled = Boolean.TRUE;
 
         //WHEN
         val replicaSet = MongoDbReplicaSet.builder().build();
 
         //THEN
-        assertEquals(isEnabled, replicaSet.isEnabled());
+        assertThat(replicaSet.isEnabled()).isTrue();
     }
 
     @Test
     void shouldGetDefaultAddArbiter() {
         //GIVEN
-        val addArbiterExpected = Boolean.FALSE;
 
         //WHEN
         val replicaSet = MongoDbReplicaSet.builder().build();
 
         //THEN
-        assertEquals(addArbiterExpected, replicaSet.getAddArbiter());
+        assertThat(replicaSet.getAddArbiter()).isFalse();
     }
 
     @Test
     void shouldGetEnabledFromSystemProperty() {
         //GIVEN
-        val enabled = Boolean.FALSE;
-        val enabledProperty = ENABLED_PROPERTIES;
-        System.setProperty(enabledProperty, enabled.toString());
+        try {
+            val enabled = Boolean.FALSE;
+            System.setProperty(ENABLED_PROPERTIES, enabled.toString());
 
-        //WHEN
-        val replicaSet = MongoDbReplicaSet.builder().build();
+            //WHEN
+            val replicaSet = MongoDbReplicaSet.builder().build();
 
-        //THEN
-        assertEquals(enabled, replicaSet.isEnabled());
+            //THEN
+            assertEquals(enabled, replicaSet.isEnabled());
 
-        //CLEAN UP
-        System.clearProperty(enabledProperty);
+        } finally {
+            System.clearProperty(ENABLED_PROPERTIES);
+        }
     }
 
     @Test
     void shouldGetEnabledFromPropertyFile() {
         //GIVEN
-        System.clearProperty(ENABLED_PROPERTIES);
         val enabled = Boolean.TRUE;
         val propertyFileName = "enabled-true.yml";
 
@@ -204,7 +248,6 @@ class MongoDbReplicaSetBuilderTest {
     @Test
     void shouldGetDefaultEnabled() {
         //GIVEN
-        System.clearProperty(ENABLED_PROPERTIES);
         val enabled = Boolean.TRUE;
 
         //WHEN

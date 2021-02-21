@@ -10,7 +10,7 @@
     replicaSetNumber | local docker host | local docker host running tests from inside a container with mapping the Docker socket | remote docker daemon | availability of an arbiter node |
     :---: | :---: |:---: | :---: | :---: |
     1 | + | + | + | - |
-    from 2 to 7 (including)  | only if adding <b>127.0.0.1 dockerhost</b> to the OS host file | + | + | + |
+    from 2 to 7 (including)  | only if adding either <b>host.docker.internal</b> (your Docker version should support it) or <b>dockerhost</b> to the OS host file. See <b>Supported features</b> for info | + | + | + |
 
 Tip:
 A single node replica set is the fastest among others. That  is the default mode for MongoDbReplicaSet.
@@ -70,8 +70,13 @@ class ITTest {
         try (
             //create a PSA mongoDbReplicaSet and auto-close it afterwards
             final MongoDbReplicaSet mongoDbReplicaSet = MongoDbReplicaSet.builder()
-                //with the latest mongo:4.4.0 docker image
+                //with the latest mongo:4.4.3 docker image
                 .mongoDockerImageName("mongo:4.4.3")
+                //If true then use host.docker.internal of Docker, 
+                //otherwise take dockerhost of Qoomon docker-host.
+                //Make sure that your OS host file includes one of them.
+                //All new Docker versions support the first variant.
+                .useHostDockerInternal(true)
                 //with 2 working nodes
                 .replicaSetNumber(2)
                 //with an arbiter node
@@ -163,6 +168,7 @@ propertyFileName | yml file located on the classpath | none | MongoDbReplicaSet.
 mongoDockerImageName | a MongoDB docker file name | mongo:4.0.10 | finds first set:<br/>1) MongoDbReplicaSet.builder()<br/> 2) the system property mongoReplicaSetProperties.mongoDockerImageName<br/> 3) propertyFile<br/> 4) default value | 
 addArbiter | whether or not to add an arbiter node to a cluster | false | MongoDbReplicaSet.builder() |
 slaveDelayTimeout | whether or not to create one master and the others as delayed members | false | MongoDbReplicaSet.builder() |
+useHostDockerInternal | If true then use host.docker.internal of Docker, otherwise take dockerhost of Qoomon docker-host | false | MongoDbReplicaSet.builder() |
 addToxiproxy | whether or not to create a proxy for each MongoDB node via Toxiproxy | false | MongoDbReplicaSet.builder() |
 enabled | whether or not MongoReplicaSet is enabled even if instantiated in a test | true | finds first set:<br/>1) the system property mongoReplicaSetProperties.enabled<br/>2) propertyFile<br/>3) default value |
 

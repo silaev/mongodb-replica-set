@@ -76,7 +76,7 @@ class MongoDbReplicaSetFaultTolerancePSSApiITTest {
         //===STAGE 2: Surviving a failure.
         //WHEN: Wait for reelection.
         mongoReplicaSet.waitForMasterReelection(currentMasterNode);
-        mongoReplicaSet.removeNodeFromReplSetConfig(currentMasterNode);
+        mongoReplicaSet.removeNodeFromReplSetConfigWithForce(currentMasterNode);
         val actualNodeStatesAfterElection =
             mongoReplicaSet.nodeStates(mongoReplicaSet.getMongoRsStatus().getMembers());
 

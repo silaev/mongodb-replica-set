@@ -19,4 +19,5 @@ public class ApplicationProperties {
     private final boolean addToxiproxy;
     private final int slaveDelayTimeout;
     private final int slaveDelayNumber;
+    private final boolean useHostDockerInternal;
 }
