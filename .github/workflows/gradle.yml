@@ -41,7 +41,8 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
     - name: Build with Gradle agains host, mongodb-version ${{ matrix.cfg.mongodb-version }}
-      run: ./gradlew clean build --no-daemon \
+      run: |
+        ./gradlew clean build --no-daemon \
         -DmongoReplicaSetProperties.mongoDockerImageName=mongo:${{ matrix.cfg.mongodb-version }} \
         -DmongoReplicaSetProperties.useHostDockerInternal=${{ matrix.cfg.use-host-docker-internal }}
     - name: Build with Gradle in docker-only mode ${{ matrix.cfg.mongodb-version }}
