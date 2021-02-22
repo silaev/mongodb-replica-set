@@ -10,7 +10,7 @@
     replicaSetNumber | local docker host | local docker host running tests from inside a container with mapping the Docker socket | remote docker daemon | availability of an arbiter node |
     :---: | :---: |:---: | :---: | :---: |
     1 | + | + | + | - |
-    from 2 to 7 (including)  | only if adding either <b>host.docker.internal</b> (your Docker version should support it) or <b>dockerhost</b> to the OS host file. See <b>Supported features</b> for info | + | + | + |
+    from 2 to 7 (including)  | only if adding either `host.docker.internal` (your Docker version should support it) or `dockerhost` to the OS host file. See <b>Supported features</b> for details | + | + | + |
 
 Tip:
 A single node replica set is the fastest among others. That  is the default mode for MongoDbReplicaSet.
@@ -41,10 +41,13 @@ version | transaction support |
 ---------- | ---------- |
 3.6.14 |-|
 4.0.12 |+|
-4.2.0 |+|
-4.4.0 |+|
+4.2.8 |+|
+4.4.3 |+|
  
 #### Examples
+<details>
+  <summary>Click to see a single node example</summary>
+
 ```java
 class ITTest {
     @Test
@@ -64,7 +67,15 @@ class ITTest {
             assertNotNull(mongoDbReplicaSet.getReplicaSetUrl());
         }
     }
+}
+```
+</details>
 
+<details>
+  <summary>Click to see a fault tolerance example</summary>
+
+```java
+class ITTest {
     @Test
     void testFaultTolerance() {
         try (
@@ -121,7 +132,9 @@ class ITTest {
         }
     }
 }
-``` 
+```
+</details>
+ 
 - See more examples in the test sources [mongodb-replica-set on github](https://github.com/silaev/mongodb-replica-set/tree/master/src/test/java/com/github/silaev/mongodb/replicaset/integration)
 - See a full Spring Boot + Spring Data example [wms on github](https://github.com/silaev/wms/blob/master/src/test/java/com/silaev/wms/integration/ProductControllerITTest.java/)
 
@@ -133,6 +146,9 @@ class ITTest {
 dealing with network partitioning, analyze the election process and so on).
    
 #### General info
+<details>
+  <summary>Click to see how to create a 3 node replica set on fixed ports via Docker manually</summary>
+
 MongoDB starting from version 4 supports multi-document transactions only on a replica set.
 For example, to initialize a 3 node replica set on fixed ports via Docker, one has to do the following:
 1. Add `127.0.0.1 mongo1 mongo2 mongo3` to the host file of an operation system;
@@ -158,6 +174,7 @@ For example, to initialize a 3 node replica set on fixed ports via Docker, one h
 
 As we can see, there is a lot of operations to execute and we even didn't touch a non-fixed port approach.
 That's where the MongoDbReplicaSet might come in handy. 
+</details>
 
 #### Supported features 
 Feature | Description | default value | how to set | 
@@ -168,7 +185,7 @@ propertyFileName | yml file located on the classpath | none | MongoDbReplicaSet.
 mongoDockerImageName | a MongoDB docker file name | mongo:4.0.10 | finds first set:<br/>1) MongoDbReplicaSet.builder()<br/> 2) the system property mongoReplicaSetProperties.mongoDockerImageName<br/> 3) propertyFile<br/> 4) default value | 
 addArbiter | whether or not to add an arbiter node to a cluster | false | MongoDbReplicaSet.builder() |
 slaveDelayTimeout | whether or not to create one master and the others as delayed members | false | MongoDbReplicaSet.builder() |
-useHostDockerInternal | If true then use host.docker.internal of Docker, otherwise take dockerhost of Qoomon docker-host | false | MongoDbReplicaSet.builder() |
+useHostDockerInternal | If true then use `host.docker.internal` of Docker, otherwise take `dockerhost` of Qoomon docker-host | false | finds first set:<br/>1) MongoDbReplicaSet.builder()<br/> 2) the system property mongoReplicaSetProperties.useHostDockerInternal<br/> 3) default value|
 addToxiproxy | whether or not to create a proxy for each MongoDB node via Toxiproxy | false | MongoDbReplicaSet.builder() |
 enabled | whether or not MongoReplicaSet is enabled even if instantiated in a test | true | finds first set:<br/>1) the system property mongoReplicaSetProperties.enabled<br/>2) propertyFile<br/>3) default value |
 
