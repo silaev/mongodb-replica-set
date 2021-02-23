@@ -1,6 +1,8 @@
 package com.github.silaev.mongodb.replicaset;
 
 import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.model.Capability;
+import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Info;
 import com.github.silaev.mongodb.replicaset.converter.impl.MongoNodeToMongoSocketAddressConverter;
 import com.github.silaev.mongodb.replicaset.converter.impl.StringToMongoRsStatusConverter;
@@ -903,6 +905,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
      * @param dockerHostName a network alias
      * @return a container to forward TCP and UDP traffic to the docker host.
      * @see <a href="https://github.com/qoomon/docker-host">docker-host on github</a>
+     * @see <a href="https://docs.docker.com/engine/api/v1.41/#operation/ContainerCreate">Docker API Create a container</a>
      */
     @SuppressWarnings("java:S2095")
     private @NonNull GenericContainer getAndRunDockerHostContainer(
@@ -911,8 +914,13 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     ) {
         final GenericContainer dockerHostContainer = new GenericContainer<>(
             DOCKER_HOST_CONTAINER_NAME
-        ).withPrivilegedMode(true)
-            .withNetwork(network)
+        ).withCreateContainerCmdModifier(
+            it -> it.withHostConfig(
+                HostConfig.newHostConfig()
+                    .withCapAdd(Capability.NET_ADMIN, Capability.NET_RAW)
+                    .withNetworkMode(network.getId())
+            )
+        ).withNetwork(network)
             .withNetworkAliases(dockerHostName)
             .waitingFor(
                 Wait.forLogMessage(".*Forwarding ports.*", 1)
