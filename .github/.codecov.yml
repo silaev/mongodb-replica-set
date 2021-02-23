@@ -10,7 +10,7 @@ coverage:
         project:
             default:
                 enabled: yes
-                target: 90%
+                target: 80%
                 threshold: 10%
                 if_ci_failed: error
         patch: off
