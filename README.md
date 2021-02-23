@@ -42,7 +42,7 @@ version | transaction support |
 3.6.14 |-|
 4.0.12 |+|
 4.2.8 |+|
-4.4.3 |+|
+4.4.4 |+|
  
 #### Examples
 <details>
@@ -55,7 +55,7 @@ class ITTest {
         try (
             //create a single node mongoDbReplicaSet and auto-close it afterwards
             final MongoDbReplicaSet mongoDbReplicaSet = MongoDbReplicaSet.builder()
-                .mongoDockerImageName("mongo:4.4.3")
+                .mongoDockerImageName("mongo:4.4.4")
                 .build()
         ) {
             //start it
@@ -81,8 +81,8 @@ class ITTest {
         try (
             //create a PSA mongoDbReplicaSet and auto-close it afterwards
             final MongoDbReplicaSet mongoDbReplicaSet = MongoDbReplicaSet.builder()
-                //with the latest mongo:4.4.3 docker image
-                .mongoDockerImageName("mongo:4.4.3")
+                //with the latest mongo:4.4.4 docker image
+                .mongoDockerImageName("mongo:4.4.4")
                 //If true then use host.docker.internal of Docker, 
                 //otherwise take dockerhost of Qoomon docker-host.
                 //Make sure that your OS host file includes one of them.
