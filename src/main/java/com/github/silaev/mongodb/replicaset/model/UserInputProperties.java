@@ -3,6 +3,8 @@ package com.github.silaev.mongodb.replicaset.model;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.util.List;
+
 /**
  * Basic input properties coming from MongoReplicaSet's builder.
  *
@@ -20,4 +22,5 @@ public final class UserInputProperties {
     private final String propertyFileName;
     private final Integer slaveDelayNumber;
     private final Boolean useHostDockerInternal;
+    private final List<String> commandLineOptions;
 }

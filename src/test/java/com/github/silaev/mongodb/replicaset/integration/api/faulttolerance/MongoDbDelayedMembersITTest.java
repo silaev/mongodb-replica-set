@@ -9,6 +9,8 @@ import lombok.val;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
+
 import static org.hamcrest.CoreMatchers.hasItems;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -33,6 +35,7 @@ class MongoDbDelayedMembersITTest {
                 .replicaSetNumber(4)
                 .slaveDelayTimeout(50000)
                 .slaveDelayNumber(1)
+                .commandLineOptions(Arrays.asList("--oplogSize", "50"))
                 .build()
         ) {
             mongoReplicaSet.start();

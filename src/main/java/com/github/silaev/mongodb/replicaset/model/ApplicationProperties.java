@@ -3,6 +3,8 @@ package com.github.silaev.mongodb.replicaset.model;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.util.List;
+
 /**
  * Immutable class property class to evaluate them from different sources.
  *
@@ -20,4 +22,5 @@ public class ApplicationProperties {
     private final int slaveDelayTimeout;
     private final int slaveDelayNumber;
     private final boolean useHostDockerInternal;
+    private final List<String> commandLineOptions;
 }
