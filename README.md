@@ -4,7 +4,7 @@
 
 #### Prerequisite
 - Java 8+
-- Docker Desktop
+- Docker
 - Chart shows local and remote docker support for replicaSetNumber
 
     replicaSetNumber | local docker host | local docker host running tests from inside a container with mapping the Docker socket | remote docker daemon | availability of an arbiter node |
@@ -188,6 +188,7 @@ slaveDelayTimeout | whether or not to create one master and the others as delaye
 useHostDockerInternal | If true then use `host.docker.internal` of Docker, otherwise take `dockerhost` of Qoomon docker-host | false | finds first set:<br/>1) MongoDbReplicaSet.builder()<br/> 2) the system property mongoReplicaSetProperties.useHostDockerInternal<br/> 3) default value|
 addToxiproxy | whether or not to create a proxy for each MongoDB node via Toxiproxy | false | MongoDbReplicaSet.builder() |
 enabled | whether or not MongoReplicaSet is enabled even if instantiated in a test | true | finds first set:<br/>1) the system property mongoReplicaSetProperties.enabled<br/>2) propertyFile<br/>3) default value |
+commandLineOptions | command line options, example:`Arrays.asList("--oplogSize", "50")` | emptyList | MongoDbReplicaSet.builder() |
 
 a propertyFile.yml example: 
 ```yaml
