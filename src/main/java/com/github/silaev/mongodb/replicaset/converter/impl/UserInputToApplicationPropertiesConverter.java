@@ -14,6 +14,7 @@ import com.github.silaev.mongodb.replicaset.util.StringUtils;
 import lombok.AllArgsConstructor;
 import lombok.val;
 
+import java.util.Collections;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -136,6 +137,9 @@ public class UserInputToApplicationPropertiesConverter
             .slaveDelayTimeout(slaveDelayTimeout)
             .slaveDelayNumber(slaveDelayNumber)
             .useHostDockerInternal(useHostDockerInternal)
+            .commandLineOptions(
+                Optional.ofNullable(inputProperties.getCommandLineOptions()).orElse(Collections.emptyList())
+            )
             .build();
     }
 

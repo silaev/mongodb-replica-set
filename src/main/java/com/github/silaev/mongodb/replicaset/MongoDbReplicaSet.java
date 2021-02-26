@@ -139,7 +139,8 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         final Boolean addToxiproxy,
         final Integer slaveDelayTimeout,
         final Integer slaveDelayNumber,
-        final Boolean useHostDockerInternal
+        final Boolean useHostDockerInternal,
+        final List<String> commandLineOptions
     ) {
         val propertyConverter =
             new UserInputToApplicationPropertiesConverter();
@@ -155,6 +156,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
                 .slaveDelayTimeout(slaveDelayTimeout)
                 .slaveDelayNumber(slaveDelayNumber)
                 .useHostDockerInternal(useHostDockerInternal)
+                .commandLineOptions(commandLineOptions)
                 .build()
         );
         this.statusConverter = new StringToMongoRsStatusConverter();
@@ -941,11 +943,15 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         final Network network,
         final boolean addExtraHost
     ) {
+        final String[] commands = Stream.concat(
+            Stream.of("--bind_ip", "0.0.0.0", "--replSet", "docker-rs"),
+            properties.getCommandLineOptions().stream()
+        ).toArray(String[]::new);
         final GenericContainer mongoDbContainer = new GenericContainer<>(
             properties.getMongoDockerImageName()
         ).withNetwork(getReplicaSetNumber() == 1 ? null : network)
             .withExposedPorts(MONGO_DB_INTERNAL_PORT)
-            .withCommand("--bind_ip", "0.0.0.0", "--replSet", "docker-rs")
+            .withCommand(commands)
             .waitingFor(
                 Wait.forListeningPort()
             ).withStartupTimeout(Duration.ofSeconds(60))
