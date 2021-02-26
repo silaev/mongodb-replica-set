@@ -1,4 +1,4 @@
-# Java8 MongoDBReplicaSet to construct a full-featured MongoDB cluster for integration testing, reproducing production issues, learning distributed systems by the example of MongoDB   
+# Run MongoDB Atlas locally for testing   
 ![build](https://github.com/silaev/mongodb-replica-set/workflows/build/badge.svg?branch=master)
 [![codecov](https://codecov.io/gh/silaev/mongodb-replica-set/branch/master/graph/badge.svg)](https://codecov.io/gh/silaev/mongodb-replica-set)
 
