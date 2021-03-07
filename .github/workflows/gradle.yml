@@ -56,6 +56,8 @@ jobs:
           sleep 1
           DOCKER_HOST=unix://$XDG_RUNTIME_DIR/docker.sock docker info || ls -la $XDG_RUNTIME_DIR
     - name: Build with Gradle agains host, mongodb-version ${{ matrix.cfg.mongodb-version }}
+      env:
+          DOCKER_HOST: unix:///tmp/rootless-docker/docker.sock
       run: |
         ./gradlew clean build --no-daemon \
         -DmongoReplicaSetProperties.mongoDockerImageName=mongo:${{ matrix.cfg.mongodb-version }} \
