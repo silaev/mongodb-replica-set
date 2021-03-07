@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, feature/test_with_rootless_docker ]
   pull_request: {}
 
 jobs:
@@ -40,6 +40,21 @@ jobs:
       run: sudo echo "127.0.0.1 host.docker.internal" | sudo tee -a /etc/hosts
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
+    - name: debug
+      run: id -u; whoami
+    - name: uninstall rootful Docker
+      run: sudo apt-get -q -y --purge remove moby-engine moby-buildx && sudo rm -rf /var/run/docker.sock
+    - name: install rootless Docker
+      env:
+        XDG_RUNTIME_DIR: "/tmp/rootless-docker"
+      run: |
+          mkdir -p $XDG_RUNTIME_DIR || true
+          curl -fsSL https://get.docker.com/rootless | sh > init.sh
+          cat init.sh
+          source <(grep '^export' init.sh)
+          PATH=$HOME/bin:$PATH dockerd-rootless.sh --experimental --storage-driver vfs &
+          sleep 1
+          DOCKER_HOST=unix://$XDG_RUNTIME_DIR/docker.sock docker info || ls -la $XDG_RUNTIME_DIR
     - name: Build with Gradle agains host, mongodb-version ${{ matrix.cfg.mongodb-version }}
       run: |
         ./gradlew clean build --no-daemon \

@@ -29,7 +29,7 @@ repositories {
 }
 
 lombok {
-    version = "1.18.12"
+    version = "1.18.16"
 }
 
 configurations {
