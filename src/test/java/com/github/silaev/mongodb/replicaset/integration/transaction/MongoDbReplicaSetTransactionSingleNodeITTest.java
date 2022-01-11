@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 @IntegrationTest
 @EnabledIfSystemPropertyEnabledByDefault(
     named = "mongoReplicaSetProperties.mongoDockerImageName",
-    matches = "^mongo:4.*"
+    matches = "^mongo:4.*|^mongo:5.*"
 )
 class MongoDbReplicaSetTransactionSingleNodeITTest extends
     BaseMongoDbReplicaSetTransactionITTest {

@@ -198,11 +198,11 @@ mongoReplicaSetProperties:
 ```
 
 #### License
-[The MIT License (MIT)](https://github.com/silaev/mongodb-replica-set/blob/master/LICENSE/)
+[Apache License, Version 2.0](https://github.com/silaev/mongodb-replica-set/blob/master/LICENSE/)
 
 #### Additional links
 * [mongo-replica-set-behind-firewall](https://serverfault.com/questions/815955/mongo-replica-set-behind-firewall)
 * [Support different networks](https://jira.mongodb.org/browse/SERVER-1889)
 
 #### Copyright
-Copyright (c) 2021 Konstantin Silaev <silaev256@gmail.com>
+Copyright (c) 2022 Konstantin Silaev <silaev256@gmail.com>

@@ -3,8 +3,8 @@ import io.franzbecker.gradle.lombok.task.DelombokTask
 buildscript {
     ext {
         junitVersion = '5.7.1'
-        testcontainersVersion = '1.15.2'
-        mongodbDriverVersion = '4.2.1'
+        testcontainersVersion = '1.16.2'
+        mongodbDriverVersion = '4.4.1'
     }
 }
 

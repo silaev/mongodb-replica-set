@@ -1,6 +1,7 @@
 package com.github.silaev.mongodb.replicaset.integration.api.faulttolerance;
 
 import com.github.silaev.mongodb.replicaset.MongoDbReplicaSet;
+import com.github.silaev.mongodb.replicaset.core.EnabledIfSystemPropertyEnabledByDefault;
 import com.github.silaev.mongodb.replicaset.core.IntegrationTest;
 import com.github.silaev.mongodb.replicaset.model.DisconnectionType;
 import com.github.silaev.mongodb.replicaset.model.Pair;
@@ -33,6 +34,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * @author Konstantin Silaev on 1/28/2020
  */
 @IntegrationTest
+@EnabledIfSystemPropertyEnabledByDefault(
+    named = "mongoReplicaSetProperties.mongoDockerImageName",
+    matches = "^mongo:4.*"
+)
 class MongoDbReplicaSetDistributionITTest {
     /**
      * If Data Center 1 goes down, the replica set becomes read-only.

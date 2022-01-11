@@ -1,5 +1,6 @@
 package com.github.silaev.mongodb.replicaset.converter.impl;
 
+import com.github.silaev.mongodb.replicaset.MongoDbReplicaSet;
 import com.github.silaev.mongodb.replicaset.converter.Converter;
 import com.github.silaev.mongodb.replicaset.converter.YmlConverter;
 import com.github.silaev.mongodb.replicaset.model.MongoNode;
@@ -12,7 +13,6 @@ import lombok.AllArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-import lombok.var;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -122,7 +122,10 @@ public class StringToMongoRsStatusConverter implements Converter<String, MongoRs
 
         val sb = new StringBuilder();
         for (int i = idx; i < length; i++) {
-            sb.append(lines[i].replaceAll("\\s\\s", ""));
+            final String line = lines[i];
+            if (!line.startsWith(MongoDbReplicaSet.WAITING_MSG)) {
+                sb.append(line.replaceAll("\\s\\s", ""));
+            }
         }
         if (formatJson) {
             val matcher = OK_PATTERN.matcher(sb);
