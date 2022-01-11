@@ -32,7 +32,7 @@ jacocoTestCoverageVerification {
         rule {
             limit {
                 def minTestCov = System.properties.get("minTestCov")
-                minimum = (minTestCov == null) ? 0.75 : new BigDecimal(minTestCov.toString())
+                minimum = (minTestCov == null) ? 0.80 : new BigDecimal(minTestCov.toString())
             }
         }
     }
