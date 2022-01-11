@@ -1288,7 +1288,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             }
         }
     }
-    
+
     public void reconfigureReplSetForPSA(final MongoSocketAddress mongoSocketAddress, Boolean isWorkingNode) {
         val replicaSetReConfig = getConfigForPSA(mongoSocketAddress, isWorkingNode);
         log.debug("Reconfiguring for PSA a node : {}", replicaSetReConfig);
