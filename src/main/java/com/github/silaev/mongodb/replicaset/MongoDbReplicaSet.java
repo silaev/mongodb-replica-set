@@ -94,6 +94,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     public static final int MAX_VOTING_MEMBERS = 7;
     public static final Comparator<MongoSocketAddress> COMPARATOR_MAPPED_PORT = Comparator.comparing(MongoSocketAddress::getMappedPort);
     public static final String RECONFIG_RS_MSG = "Reconfiguring a replica set";
+    public static final String WAITING_MSG = "Waiting for";
     static final String STATUS_COMMAND = "rs.status()";
     static final int CONTAINER_EXIT_CODE_OK = 0;
     private static final String SHOPIFY_TOXIPROXY_IMAGE = "shopify/toxiproxy:2.1.3";
@@ -575,11 +576,12 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             String.format(
                 "var attempt = 0; " +
                     "while (attempt <= %d) { " +
-                    "print('Waiting for a single master node up to ' + attempt); sleep(1000); attempt++;" +
+                    "print('%s a single master node up to ' + attempt); sleep(1000); attempt++;" +
                     "if (%s rs.status().members.filter(o => o.state === 1).length === 1) " +
                     "{ rs.status().members.find(o => o.state === 1).name; break; }}; " +
                     "if(attempt > %d) {quit(1)};",
                 getAwaitNodeInitAttempts(),
+                WAITING_MSG,
                 RS_STATUS_MEMBERS_DEFINED_CONDITION,
                 getAwaitNodeInitAttempts()
             )
@@ -599,10 +601,10 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
                             .build();
                     }
                 ).orElseThrow(
-                () -> new IllegalArgumentException(
-                    String.format("Cannot find an address in a MongoDb reply:%n %s", stdout)
-                )
-            );
+                    () -> new IllegalArgumentException(
+                        String.format("Cannot find an address in a MongoDb reply:%n %s", stdout)
+                    )
+                );
         log.debug("Found the master elected: {}", mongoSocketAddress);
 
         return extractGenericContainer(mongoSocketAddress, workingNodeStore);
@@ -667,7 +669,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         val execResultWaitForMaster = waitForCondition(
             mongoContainer,
             "db.runCommand( { isMaster: 1 } ).ismaster==false",
-            awaitNodeInitAttempts, "awaiting for a node to be a master one"
+            awaitNodeInitAttempts, WAITING_MSG + " a node to be a master one"
         );
         log.debug(execResultWaitForMaster.getStdout());
 
@@ -731,7 +733,8 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         val execResultAddArbiter = execMongoDbCommandInContainer(
             masterNode,
             String.format(
-                "rs.addArb(\"%s:%d\")",
+                "%srs.addArb(\"%s:%d\")",
+                getDefaultConcernsCommand(),
                 mongoSocketAddress.getIp(),
                 mongoSocketAddress.getReplSetPort()
             )
@@ -1275,11 +1278,40 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         final GenericContainer masterNode,
         final MongoSocketAddress mongoSocketAddress
     ) {
-        if (Boolean.TRUE.equals(isWorkingNode)) {
-            addWorkingNodeToReplSetConfig(masterNode, mongoSocketAddress);
+        if (getMongoRsStatus().getVersion().getMajor() >= 5 && getAddArbiter()) {
+            reconfigureReplSetForPSA(mongoSocketAddress, isWorkingNode);
         } else {
-            addArbiterNodeToReplSetConfig(masterNode, mongoSocketAddress);
+            if (Boolean.TRUE.equals(isWorkingNode)) {
+                addWorkingNodeToReplSetConfig(masterNode, mongoSocketAddress);
+            } else {
+                addArbiterNodeToReplSetConfig(masterNode, mongoSocketAddress);
+            }
         }
+    }
+
+    private void reconfigureReplSetForPSA(final MongoSocketAddress mongoSocketAddress, Boolean isWorkingNode) {
+        val replicaSetReConfig = getConfigForPSA(mongoSocketAddress, isWorkingNode);
+        log.debug("Reconfiguring for PSA a node : {}", replicaSetReConfig);
+        val execResult = execMongoDbCommandInContainer(
+            workingNodeStore.values().iterator().next(),
+            replicaSetReConfig
+        );
+        log.debug(execResult.getStdout());
+
+        checkMongoNodeExitCode(execResult, RECONFIG_RS_MSG);
+    }
+
+    private String getConfigForPSA(final MongoSocketAddress mongoSocketAddress, Boolean isWorkingNode) {
+        val newNode = String.format(
+            "JSON.parse('{\"_id\": '+max+', \"host\": \"%s\", \"arbiterOnly\": %b, \"buildIndexes\": true, \"hidden\": false, \"priority\": 1, \"votes\": 1, \"tags\": {}}')",
+            mongoSocketAddress.getIp() + ":" + mongoSocketAddress.getMappedPort(),
+            !isWorkingNode
+        );
+        return String.format("cfg=rs.config();\n" +
+            "max=Math.max.apply(Math, cfg[\"members\"].map(function(o) { return o._id; }))+1;\n" +
+            "cfg[\"members\"].push(%s); \n" +
+            "rs.reconfigForPSASet(cfg[\"members\"].length-1, cfg);", newNode
+        );
     }
 
     /**
@@ -1425,6 +1457,16 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             );
     }
 
+    /**
+     * https://jira.mongodb.org/browse/SERVER-58964?focusedCommentId=3977410&page=com.atlassian.jira.plugin.system.issuetabpanels%3Acomment-tabpanel
+     */
+    private String getDefaultConcernsCommand() {
+        val mongoRsStatus = getMongoRsStatus();
+        return mongoRsStatus.getVersion().getMajor() >= 5 && getAddArbiter()
+            ? "db.adminCommand({\"setDefaultRWConcern\" : 1, \"defaultWriteConcern\" : { \"w\" : 1 }});"
+            : "";
+    }
+
     private void validateFaultToleranceTestSupportAvailability() {
         if (getReplicaSetNumber() == 1) {
             throw new IllegalStateException(
@@ -1568,7 +1610,8 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
             previousMasterMongoNode.getPort()
         );
         val reelectionMessage = String.format(
-            "Waiting for the reelection of %s",
+            "%s the reelection of %s",
+            WAITING_MSG,
             prevMasterName
         );
         val execResultMasterReelection = waitForCondition(
@@ -1590,7 +1633,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
     public void waitForMaster() {
         verifyWorkingNodeStoreIsNotEmpty();
 
-        val message = "Waiting for a master node to be present in a cluster";
+        val message = WAITING_MSG + " a master node to be present in a cluster";
         val execResult = waitForCondition(
             workingNodeStore.values().iterator().next(),
             buildWaitStopCondition("rs.status().members.filter(o => o.state === 1).length === 1"),
@@ -1607,7 +1650,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         validateFaultToleranceTestSupportAvailability();
         verifyWorkingNodeStoreIsNotEmpty();
 
-        val waitingMessage = "Waiting for all nodes are up and running";
+        val waitingMessage = WAITING_MSG + " all nodes are up and running";
         val execResultWaitForNodesUp = waitForCondition(
             workingNodeStore.values().iterator().next(),
             buildWaitStopCondition("rs.status().members.filter(" +
@@ -1628,7 +1671,7 @@ public class MongoDbReplicaSet implements Startable, AutoCloseable {
         validateFaultToleranceTestSupportAvailability();
         verifyWorkingNodeStoreIsNotEmpty();
 
-        val waitingMessage = String.format("Waiting for %d node(s) is(are) down", nodeNumber);
+        val waitingMessage = String.format("%s %d node(s) is(are) down", WAITING_MSG, nodeNumber);
         val execResultWaitForNodesUp = waitForCondition(
             workingNodeStore.values().iterator().next(),
             String.format(

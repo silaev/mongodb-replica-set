@@ -17,6 +17,8 @@ jobs:
                 - { mongodb-version: '4.2.8', use-host-docker-internal: false }
                 - { mongodb-version: '4.4.4', use-host-docker-internal: false }
                 - { mongodb-version: '4.4.4', use-host-docker-internal: true }
+                - { mongodb-version: '5.0.5', use-host-docker-internal: false }
+                - { mongodb-version: '5.0.5', use-host-docker-internal: true }
 
     steps:
     - uses: actions/checkout@v2

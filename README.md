@@ -35,7 +35,8 @@ dependencies {
 </dependencies>
 ```
 Replace ${LATEST_RELEASE} with [the Latest Version Number](https://search.maven.org/search?q=g:com.github.silaev%20AND%20a:mongodb-replica-set) 
-    
+If you cannot find a release on Maven, please, use Jitpack
+
 #### MongoDB versions that MongoDbReplicaSet is constantly tested against
 version | transaction support |
 ---------- | ---------- |
@@ -43,7 +44,8 @@ version | transaction support |
 4.0.12 |+|
 4.2.8 |+|
 4.4.4 |+|
- 
+5.0.5 |+|
+
 #### Examples
 <details>
   <summary>Click to see a single node example</summary>
@@ -198,11 +200,11 @@ mongoReplicaSetProperties:
 ```
 
 #### License
-[The MIT License (MIT)](https://github.com/silaev/mongodb-replica-set/blob/master/LICENSE/)
+[Apache License, Version 2.0](https://github.com/silaev/mongodb-replica-set/blob/master/LICENSE/)
 
 #### Additional links
 * [mongo-replica-set-behind-firewall](https://serverfault.com/questions/815955/mongo-replica-set-behind-firewall)
 * [Support different networks](https://jira.mongodb.org/browse/SERVER-1889)
 
 #### Copyright
-Copyright (c) 2021 Konstantin Silaev <silaev256@gmail.com>
+Copyright (c) 2022 Konstantin Silaev <silaev256@gmail.com>
