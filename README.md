@@ -35,7 +35,8 @@ dependencies {
 </dependencies>
 ```
 Replace ${LATEST_RELEASE} with [the Latest Version Number](https://search.maven.org/search?q=g:com.github.silaev%20AND%20a:mongodb-replica-set) 
-    
+If you cannot find a release on Maven, please, use Jitpack
+
 #### MongoDB versions that MongoDbReplicaSet is constantly tested against
 version | transaction support |
 ---------- | ---------- |
