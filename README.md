@@ -37,6 +37,20 @@ dependencies {
 Replace ${LATEST_RELEASE} with [the Latest Version Number](https://search.maven.org/search?q=g:com.github.silaev%20AND%20a:mongodb-replica-set) 
 If you cannot find a release on Maven, please, use Jitpack
 
+#### Run on Apple silicon
+Use digests for linux/arm64/v8 and Docker Desktop for Apple silicon supporting host.docker.internal (should be in the OS host file).
+Examples:
+1.
+```
+MongoDbReplicaSet.builder()
+    .mongoDockerImageName("mongo@sha256:8a823923d80e819e21ee6c179eabf42460b6b7d8ac3dd5f35b59419ae5413640")
+    .useHostDockerInternal(true)
+    .build()`
+```    
+2
+`./gradlew clean build -DmongoReplicaSetProperties.mongoDockerImageName=mongo@sha256:8a823923d80e819e21ee6c179eabf42460b6b7d8ac3dd5f35b59419ae5413640 -DmongoReplicaSetProperties.useHostDockerInternal=true`
+
+
 #### MongoDB versions that MongoDbReplicaSet is constantly tested against
 version | transaction support |
 ---------- | ---------- |

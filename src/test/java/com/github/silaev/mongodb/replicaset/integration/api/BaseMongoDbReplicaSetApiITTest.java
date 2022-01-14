@@ -1,7 +1,6 @@
 package com.github.silaev.mongodb.replicaset.integration.api;
 
 import com.github.silaev.mongodb.replicaset.MongoDbReplicaSet;
-import com.github.silaev.mongodb.replicaset.converter.impl.VersionConverter;
 import com.github.silaev.mongodb.replicaset.model.MongoNode;
 import com.github.silaev.mongodb.replicaset.model.ReplicaSetMemberState;
 import com.github.silaev.mongodb.replicaset.util.CollectionUtils;
@@ -14,7 +13,6 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.bson.Document;
 import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.Assertions;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -85,40 +83,6 @@ abstract class BaseMongoDbReplicaSetApiITTest {
     @NotNull
     private Document getDocument(final List<Document> documents) {
         return documents.get(0);
-    }
-
-    @SneakyThrows
-    void shouldTestVersionAndDockerImageName(final MongoDbReplicaSet replicaSet) {
-        // GIVEN
-        val mongoRsUrl = replicaSet.getReplicaSetUrl();
-        val mongoRsStatus = replicaSet.getMongoRsStatus();
-        assertNotNull(mongoRsUrl);
-        assertNotNull(mongoRsStatus);
-        val dockerImageName = replicaSet.mongoDockerImageName();
-        assertNotNull(dockerImageName);
-        try (
-            val mongoReactiveClient = MongoClients.create(
-                ConnectionUtils.getMongoClientSettingsWithTimeout(mongoRsUrl)
-            )
-        ) {
-            val db = mongoReactiveClient.getDatabase("test");
-
-            // WHEN + THEN
-            val subscriber = SubscriberHelperUtils.getSubscriber(
-                db.runCommand(new Document("buildInfo", 1))
-            );
-            val version = getDocument(subscriber.get(5, TimeUnit.SECONDS)).getString("version");
-            val versionExpected =
-                dockerImageName.substring(dockerImageName.indexOf(":") + 1);
-            assertEquals(
-                versionExpected,
-                version
-            );
-            Assertions.assertEquals(
-                new VersionConverter().convert(versionExpected),
-                mongoRsStatus.getVersion()
-            );
-        }
     }
 
     void shouldTestEnabled(final MongoDbReplicaSet replicaSet) {

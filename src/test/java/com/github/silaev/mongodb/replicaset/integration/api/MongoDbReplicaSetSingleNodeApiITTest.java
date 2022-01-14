@@ -33,11 +33,6 @@ class MongoDbReplicaSetSingleNodeApiITTest extends
     }
 
     @Test
-    void shouldTestVersionAndDockerImageName() {
-        super.shouldTestVersionAndDockerImageName(MONGO_REPLICA_SET);
-    }
-
-    @Test
     void shouldTestEnabled() {
         super.shouldTestEnabled(MONGO_REPLICA_SET);
     }

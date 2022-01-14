@@ -1,8 +1,8 @@
 import groovy.transform.Memoized
 
 @Memoized
-private static List<String> getSonarExclusions() {
-    return new File("testcov.exclude").readLines()
+private static List<String> getSonarExclusions(projectDir) {
+    return new File("${projectDir}/testcov.exclude").readLines()
 }
 
 jacoco {
@@ -21,7 +21,7 @@ jacocoTestReport {
     afterEvaluate {
         classDirectories.from = files(classDirectories.files.collect {
             fileTree(dir: it,
-                exclude: getSonarExclusions())
+                exclude: getSonarExclusions(projectDir))
         })
     }
 }
@@ -40,7 +40,7 @@ jacocoTestCoverageVerification {
     afterEvaluate {
         classDirectories.from = files(classDirectories.files.collect {
             fileTree(dir: it,
-                exclude: getSonarExclusions())
+                exclude: getSonarExclusions(projectDir))
         })
     }
 }
