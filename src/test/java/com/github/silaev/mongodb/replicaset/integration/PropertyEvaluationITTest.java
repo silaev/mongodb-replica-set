@@ -5,7 +5,6 @@ import com.github.silaev.mongodb.replicaset.core.IntegrationTest;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @IntegrationTest
 class PropertyEvaluationITTest {
@@ -25,8 +24,5 @@ class PropertyEvaluationITTest {
 
         // THEN
         assertFalse(MONGO_REPLICA_SET.isEnabled());
-        assertTrue(
-            MONGO_REPLICA_SET.mongoDockerImageName().startsWith("mongo:")
-        );
     }
 }
